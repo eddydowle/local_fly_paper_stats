@@ -283,9 +283,124 @@ for (item in crops) {
 #radish only has two sites and that is the only significant dunn test. None of the kiwi comparisons are significant in the dunn test
 
 #modeling the impact of site on SVD
+library(lme4)
+library(MASS)
+library(lmtest)
+library(DHARMa)
+library(glmmTMB)
+
+#linear model#
+mod<-lm(Pollen.deposition~Crop,data=deposition_data_all_honeybee)
+summary(mod)
+mod2<-lm(Pollen.deposition~Crop+Site,data=deposition_data_all_honeybee)
+summary(mod2)
+lrtest(mod,mod2)
+AIC(mod,mod2)
+#so additional predictors don't improve the model so can exclude site
+full_mod1  <- glm(Pollen.deposition ~ Crop, data=deposition_data_all_honeybee)
+summary(full_mod1)
+
+#glm#
+#but the data isnt normal so probably needs to be transformed into poisson or nb
+#but can only do this on the whole count data (joy)
+deposition_data_all_honeybee_wholes<-deposition_data_all_honeybee %>% filter(Crop!='Kiwifruit'&Crop!='Apple'&Crop!='Pear'&Crop!='Carrot')
+
+full_mod1  <- glm(Pollen.deposition ~ Crop, family="poisson", data=deposition_data_all_honeybee_wholes)
+summary(full_mod1)
+full_mod1_nb  <- glm.nb(Pollen.deposition ~ Crop, data=deposition_data_all_honeybee_wholes)
+summary(full_mod1_nb)
+lrtest(full_mod1,full_mod1_nb)
+#nb better fit
+full_mod1_nb_site  <- glm.nb(Pollen.deposition ~ Crop+Site, data=deposition_data_all_honeybee_wholes)
+summary(full_mod1_nb_site)
+lrtest(full_mod1_nb,full_mod1_nb_site)
+#no benefit to adding in the site data in model
 
 
+#check model
+# Simulate residuals 
+simResids <- simulateResiduals(full_mod1_nb)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
 
+#using glmmTMB to deal with dispersion issues ie. heteroscedastic data
+full_modTMB_site<-glmmTMB(Pollen.deposition ~ Crop+Site, data=deposition_data_all_honeybee_wholes,family=nbinom2)
+summary(full_modTMB_site)
+full_modTMB<-glmmTMB(Pollen.deposition ~ Crop, data=deposition_data_all_honeybee_wholes,family=nbinom2)
+summary(full_modTMB)
+lrtest(full_modTMB_site,full_modTMB)
 
+#check model
+# Simulate residuals 
+simResids <- simulateResiduals(full_modTMB)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
 
+#better no longer over dispersed but within groups are all over the show still. Ins't SVD data just so fun.
+full_modTMB<-glmmTMB(Pollen.deposition ~ Crop,data=deposition_data_all_honeybee_wholes,family=nbinom2)
+summary(full_modTMB)
+full_modTMB_d<-glmmTMB(Pollen.deposition ~ Crop, dispformula = ~Crop,data=deposition_data_all_honeybee_wholes,family=nbinom2)
+summary(full_modTMB_d)
+lrtest(full_modTMB,full_modTMB_d)
+
+#check model
+# Simulate residuals 
+simResids <- simulateResiduals(full_modTMB_d)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
+
+#brind the within group deviation down so test with and without sites as predictor
+full_modTMB_d<-glmmTMB(Pollen.deposition ~ Crop, dispformula = ~Crop,data=deposition_data_all_honeybee_wholes,family=nbinom2)
+summary(full_modTMB_d)
+full_modTMB_d_site<-glmmTMB(Pollen.deposition ~ Crop+Site, dispformula = ~Crop,data=deposition_data_all_honeybee_wholes,family=nbinom2)
+summary(full_modTMB_d)
+lrtest(full_modTMB_d,full_modTMB_d_site)
+#no significant difference
+
+#Better but pvalues are possibly meaningless on glmmTMB with disp due to over inflation of type 1 error. But I think we can say that the model is not improved with the addition of site?
+
+#mucking out
+#what if I ignore the warnings about the fractions
+full_mod1  <- glm(Pollen.deposition ~ Crop, family="poisson", data=deposition_data_all_honeybee)
+summary(full_mod1)
+full_mod1_nb  <- glm.nb(Pollen.deposition ~ Crop, data=deposition_data_all_honeybee)
+summary(full_mod1_nb)
+lrtest(full_mod1,full_mod1_nb)
+#nb
+full_mod1_nb_site  <- glm.nb(Pollen.deposition ~ Crop+Site, data=deposition_data_all_honeybee)
+summary(full_mod1_nb_site)
+lrtest(full_mod1_nb_site,full_mod1_nb)
+#no benefit to adding in the site data in model but its a bad model 
+
+#check model
+# Simulate residuals 
+simResids <- simulateResiduals(full_mod1_nb)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
+
+#modeling with TMB
+full_modTMB_site<-glmmTMB(Pollen.deposition ~ Crop+Site, data=deposition_data_all_honeybee,family=nbinom2)
+summary(full_modTMB_site)
+full_modTMB<-glmmTMB(Pollen.deposition ~ Crop, data=deposition_data_all_honeybee,family=nbinom2)
+summary(full_modTMB)
+lrtest(full_modTMB_site,full_modTMB)
+
+#check model
+# Simulate residuals 
+simResids <- simulateResiduals(full_modTMB)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
+
+#adding dispformula to deal with heteroscedastic data
+full_modTMB<-glmmTMB(Pollen.deposition ~ Crop, dispformula = ~Crop,data=deposition_data_all_honeybee,family=nbinom2)
+summary(full_modTMB)
+full_modTMB_site<-glmmTMB(Pollen.deposition ~ Crop+Site, dispformula = ~Crop,data=deposition_data_all_honeybee,family=nbinom2)
+summary(full_modTMB_site)
+lrtest(full_modTMB,full_modTMB_site)
+
+#check model
+# Simulate residuals 
+simResids <- simulateResiduals(full_modTMB)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
 
