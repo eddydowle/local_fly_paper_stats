@@ -1,6 +1,7 @@
 #Eddy Dowle
 #2025
 #code for fly pollination paper
+#code for running SVD analysis (generate boxplot, do kruskal/wallis etc)
 
 ############################################
 #Analysing SVD for flies across eight crops#
@@ -289,9 +290,12 @@ library(lmtest)
 library(DHARMa)
 library(glmmTMB)
 
+#so site is variable across crops (e.g. not same site in each crops), so I think just site as a predictor and see if we can drop it
+
 #linear model#
 mod<-lm(Pollen.deposition~Crop,data=deposition_data_all_honeybee)
 summary(mod)
+#site as a predictor
 mod2<-lm(Pollen.deposition~Crop+Site,data=deposition_data_all_honeybee)
 summary(mod2)
 lrtest(mod,mod2)
