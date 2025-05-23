@@ -275,8 +275,9 @@ summary_table_honeybee<-full_join(summary_table_honeybee_count,summary_table_hon
 #write.csv(summary_table_honeybee,'summary_table_honeybee_inflorescence_visits_sites_2ndMay.csv',quote=F,row.names = F)
 
 ###############################
-#analysing rates of movements honeybee##
+#analysing rates of movements honeybee by site##
 ###############################
+#is site a significant predictor of rates of movements in honeybees (only species we have enough data to test)
 
 #Standardising number of flower visited per 60 seconds (one minute)
 crops_together_honeybee_inflorescenceMin<-crops_together_honeybee %>% group_by(Crop,Site,Individual_id_eddy) %>% summarise(SumTimeFlower=sum(`Time on inflorescence/umbel/flower (sec)`),Countinfloresence=n()) %>% mutate(time_diff=60/SumTimeFlower) %>% mutate(inflorescencePerMin=Countinfloresence*time_diff)
@@ -365,9 +366,52 @@ dunn_table_out %>% filter(Pear_P.adj <0.05) %>% nrow()
 dunn_table_out %>% drop_na(Pear_P.adj ) %>% nrow()
 #pear 0/10 sig
 
+#running a model to see if can drop site as a predictor
+
+#modeling the impact of site on SVD
+library(lme4)
+library(MASS)
+library(lmtest)
+library(DHARMa)
+library(glmmTMB)
+
+#go back to the raw data 
+head(crops_together_honeybee)
+head(summary_table_honeybee)
+head(crops_together_honeybee_summarytable)
+
+#raw counts #inflorescence ~crop and offset log(sumtime)
+hist(crops_together_honeybee_summarytable$Countinfloresence)
+mod<-glm(Countinfloresence ~ Crop, data = crops_together_honeybee_summarytable, family = poisson, offset = log(SumTimeFlower))
+summary(mod)
+mod_site<-glm(Countinfloresence ~ Crop+Site, data = crops_together_honeybee_summarytable, family = poisson, offset = log(SumTimeFlower))
+summary(mod_site)
+lrtest(mod,mod_site)
+simResids <- simulateResiduals(mod_site)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
+
+#site does have a significant impact on behavior in honeybees
+mod_site<-glm(Countinfloresence ~ Crop+Site, data = crops_together_honeybee_summarytable, family = poisson, offset = log(SumTimeFlower))
+summary(mod_site)
+mod_site_nb<-glm.nb(Countinfloresence ~ Crop+Site+offset(log(SumTimeFlower)), data = crops_together_honeybee_summarytable)
+summary(mod_site_nb)
+lrtest(mod_site,mod_site_nb)
+simResids <- simulateResiduals(mod_site_nb)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
+
+#having a look on all raw data
+head(crops_together_summarytable)
+mod<-glm.nb(Countinfloresence ~ Crop*`Full scientific name`+offset(log(SumTimeFlower)), data = crops_together_summarytable)
+summary(mod)
+simResids <- simulateResiduals(mod)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
+
 
 #############################
-#proportion stigma contacted#
+#proportion stigma contacted honeybee by site#
 #############################
 
 #drop avocado, kiwifruit, 
@@ -467,3 +511,39 @@ dunn_table_out %>% drop_na(Onion_P.adj ) %>% nrow()
 dunn_table_out %>% filter(Pear_P.adj <0.05) %>% nrow()
 dunn_table_out %>% drop_na(Pear_P.adj ) %>% nrow()
 #pear 0/10 sig
+
+#model
+
+colnames(crops_together_honeybee_summarytable)
+head(crops_together_honeybee_summarytable)
+head(crops_together_honeybee)
+
+#raw counts sucessful stigma count ~crop and offset log(Countinfloresence)
+hist(crops_together_honeybee_summarytable$CountVisitsSuccessStigma)
+
+#tying poisson
+mod<-glm(CountVisitsSuccessStigma~Crop, data = crops_together_honeybee_summarytable, family = poisson, offset = log(Countinfloresence))
+summary(mod)
+mod_site<-glm(CountVisitsSuccessStigma~Crop+Site, data = crops_together_honeybee_summarytable, family = poisson, offset = log(Countinfloresence))
+summary(mod_site)
+lrtest(mod,mod_site)
+simResids <- simulateResiduals(mod_site)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
+#site has significant impact on succesful stigma touch in honeybees
+
+mod_site<-glm(CountVisitsSuccessStigma~Crop, data = crops_together_honeybee_summarytable, family = poisson, offset = log(Countinfloresence))
+summary(mod_site)
+mod_site_nb<-glm.nb(CountVisitsSuccessStigma~Crop+Site+offset(log(Countinfloresence)), data = crops_together_honeybee_summarytable)
+summary(mod_site_nb)
+
+#site does have a significant impact on successful stigma touch in honeybees
+
+#having a look on all raw data
+head(crops_together_summarytable)
+mod<-lm(CountVisitsSuccessStigma~Crop*`Full scientific name`+offset(log(Countinfloresence)), data = crops_together_summarytable)
+summary(mod)
+simResids <- simulateResiduals(mod)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
+
