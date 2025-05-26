@@ -519,7 +519,8 @@ colnames(crops_together_honeybee_summarytable)
 head(crops_together_honeybee_summarytable)
 head(crops_together_honeybee)
 
-#raw counts sucessful stigma count ~crop and offset log(Countinfloresence)
+#need to model of the raw counts of successful stigma counts but need to offset the number of infloresence visited
+#raw counts successful stigma count ~crop and offset log(Countinfloresence)
 hist(crops_together_honeybee_summarytable$CountVisitsSuccessStigma)
 
 #tying poisson
@@ -531,22 +532,25 @@ lrtest(mod,mod_site)
 simResids <- simulateResiduals(mod_site)
 # Generate plots to compare the model residuals to expectations
 plot(simResids)
-#site has significant impact on successful stigma touch in honeybees
+#site has significant impact on successful stigma touch in honeybees but the model is a bit shit
 
+#weirdly its under dispersed not over dispersed
 mod_site<-glm(CountVisitsSuccessStigma~Crop, data = crops_together_honeybee_summarytable, family = poisson, offset = log(Countinfloresence))
-#its under dispersed - count data that is under dispersed residual deviance/DF <1
+#its under dispersed - count data that is under dispersed residual deviance/DF =<1
 
-
-summary(mod_site)
-mod_site_nb<-glm.nb(CountVisitsSuccessStigma~Crop+Site+offset(log(Countinfloresence)), data = crops_together_honeybee_summarytable)
-summary(mod_site_nb)
-#site does have a significant impact on successful stigma touch in honeybees
-mod_site_qp<-glm(CountVisitsSuccessStigma~Crop, data = crops_together_honeybee_summarytable, family = quasipoisson, offset = log(Countinfloresence))
+#trying quasi poisoon to deal with underdispersion
+mod_qp<-glm(CountVisitsSuccessStigma~Crop, data = crops_together_honeybee_summarytable, family = quasipoisson, offset = log(Countinfloresence))
+mod_qp
+mod_site_qp<-glm(CountVisitsSuccessStigma~Crop+Site, data = crops_together_honeybee_summarytable, family = quasipoisson, offset = log(Countinfloresence))
 mod_site_qp
+summary(mod_qp)
 summary(mod_site_qp)
+#cant get loglik from quasipoisson model
 pchisq(summary(mod_site_qp)$dispersion * mod_site$df.residual, 
        mod_site$df.residual, lower = TRUE) 
 # significance for underdispersion
+
+#nb would be worse for underdispersion
 
 #having a look on all raw data
 head(crops_together_summarytable)
@@ -559,8 +563,3 @@ plot(simResids)
 mod_site_qp<-glm(CountVisitsSuccessStigma~Crop*`Full scientific name`, data = crops_together_summarytable, family = quasipoisson, offset = log(Countinfloresence))
 summary(mod_site_qp)
 
-#maybe it would be better as a weight rather than a offset 
-#glm(n/N~ttt, family=binomial, weights=N) or
-#glm(n/N~ttt, family=quasibinomial, weights=N) or
-#glm(n~ttt+offset(log(N)), family=poisson) or
-#MASS::glm.nb(n~ttt+offset(log(N)))

@@ -306,8 +306,10 @@ summary(full_mod1)
 
 #glm#
 #but the data isnt normal so probably needs to be transformed into poisson or nb
+hist(deposition_data_all_honeybee$Pollen.deposition)
 #but can only do this on the whole count data (joy)
 deposition_data_all_honeybee_wholes<-deposition_data_all_honeybee %>% filter(Crop!='Kiwifruit'&Crop!='Apple'&Crop!='Pear'&Crop!='Carrot')
+hist(deposition_data_all_honeybee_wholes$Pollen.deposition)
 
 full_mod1  <- glm(Pollen.deposition ~ Crop, family="poisson", data=deposition_data_all_honeybee_wholes)
 summary(full_mod1)
@@ -353,7 +355,7 @@ simResids <- simulateResiduals(full_modTMB_d)
 # Generate plots to compare the model residuals to expectations
 plot(simResids)
 
-#brind the within group deviation down so test with and without sites as predictor
+#bring the within group deviation down so test with and without sites as predictor
 full_modTMB_d<-glmmTMB(Pollen.deposition ~ Crop, dispformula = ~Crop,data=deposition_data_all_honeybee_wholes,family=nbinom2)
 summary(full_modTMB_d)
 full_modTMB_d_site<-glmmTMB(Pollen.deposition ~ Crop+Site, dispformula = ~Crop,data=deposition_data_all_honeybee_wholes,family=nbinom2)
@@ -363,7 +365,9 @@ lrtest(full_modTMB_d,full_modTMB_d_site)
 
 #Better but pvalues are possibly meaningless on glmmTMB with disp due to over inflation of type 1 error. But I think we can say that the model is not improved with the addition of site?
 
-#mucking out
+#############
+#mucking out#
+#############
 #what if I ignore the warnings about the fractions
 full_mod1  <- glm(Pollen.deposition ~ Crop, family="poisson", data=deposition_data_all_honeybee)
 summary(full_mod1)
