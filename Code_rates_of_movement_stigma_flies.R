@@ -549,6 +549,10 @@ summary(mod_site_qp)
 pchisq(summary(mod_site_qp)$dispersion * mod_site$df.residual, 
        mod_site$df.residual, lower = TRUE) 
 # significance for underdispersion
+anova(mod_qp,mod_site_qp,test='F')
+#not sure the best way to compare quasi-poisson models there such as think QAIC but not sure how to get it from glm
+#package mmmln
+#https://www.rdocumentation.org/packages/MuMIn/versions/1.48.11/topics/QAIC
 
 #nb would be worse for underdispersion
 
