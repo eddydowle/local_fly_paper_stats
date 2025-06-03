@@ -11,7 +11,6 @@
 library(tidyverse)
 library(scales)
 library(ggforce)
-library(coin)
 library(FSA)
 library(readxl)
 
@@ -60,12 +59,13 @@ colnames(deposition_data)
 #remove kiwi from brads set as it is wongly transformed
 names(deposition_data)[names(deposition_data) == 'Pollinator.species'] <- 'Bee.species'
 deposition_data<-deposition_data %>% filter(Crop!='Kiwifruit')
+
 colnames(deposition_data)
 unique(deposition_data$Crop)
 deposition_data_all<-bind_rows(deposition_data,deposition_data_kiwi_fix)
 
 #save it out as merged file
-write.csv(deposition_data_all,'SVD_data_eddy_cleaned_flies_8crops.csv',row.names = F)
+#write.csv(deposition_data_all,'SVD_data_eddy_cleaned_flies_8crops.csv',row.names = F)
 
 ############################################
 #analysis#
@@ -91,10 +91,11 @@ deposition_data_all$Bee.species <- gsub("Australophyra rostrata", "Hydrotaea ros
 #Protohystricia alcis*
 unique(deposition_data_all$Bee.species)
 deposition_data_all$Bee.species <- gsub("Protohystricia alcis", "Prohystricia alcis", deposition_data_all$Bee.species)
+
 deposition_data_all$Bee.species <- gsub("Odontomyia cloris\\/atrovirens", "Odontomyia spp.", deposition_data_all$Bee.species)
 
 #merge colurs in
-colours_figs<-deposition_data_all %>% select(Bee.species) %>% unique() %>% left_join(.,brads_col_2,by=c('Bee.species'='Species'))
+colours_figs<-deposition_data_all %>% dplyr::select(Bee.species) %>% unique() %>% left_join(.,brads_col_2,by=c('Bee.species'='Species'))
 brads_col<-colours_figs %>% arrange(Bee.species)
 brads_col$species<-brads_col$Bee.species
 brads_col$species<- forcats::fct_relevel(brads_col$species,"Control", after = Inf)
@@ -211,6 +212,7 @@ dunn_table_out$Comparison<-gsub("ZControl", "Control", dunn_table_out$Comparison
 
 #dropping all non honey bees
 deposition_data_all_honeybee<-deposition_data_all %>% filter(Bee.species=='Apis mellifera')
+as.data.frame(sort(unique(deposition_data_all_honeybee$Site)))
 
 #standard boxplot
 ggplot(deposition_data_all_honeybee,aes(x=Crop,y=Pollen.deposition,fill=Site))+

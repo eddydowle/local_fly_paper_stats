@@ -256,7 +256,13 @@ crops_together_honeybee<-crops_together_honeybee %>% filter(Site!='')
 crops_together_honeybee$Site   <- gsub("^ ", "", crops_together_honeybee$Site)
 crops_together_honeybee$Site   <- gsub(" $", "", crops_together_honeybee$Site)
 crops_together_honeybee$Site   <- gsub("  ", "", crops_together_honeybee$Site)
-crops_together_honeybee$Site   <- gsub("31 McBrydie Road", "31 McBrydie road", crops_together_honeybee$Site)
+crops_together_honeybee$Site   <- gsub("Maurons field- Walton road", "1661 Walton road", crops_together_honeybee$Site)
+crops_together_honeybee$Site   <- gsub("23 Pahaia road", "Munro Orchard", crops_together_honeybee$Site)
+crops_together_honeybee$Site   <- gsub("Kauri point", "25 Chelmsford street", crops_together_honeybee$Site)
+crops_together_honeybee$Site   <- gsub("Celine and Lisa field", "Murray Winter", crops_together_honeybee$Site)
+crops_together_honeybee$Site   <- gsub("Graycrop- Suveyers Rd- Ashburton", "Surveyors Rd Ashburton", crops_together_honeybee$Site)
+
+
 
 
 as.data.frame(sort(unique(crops_together_honeybee$Site)))
@@ -346,16 +352,16 @@ dunn_table_out %>% drop_na(Apple_P.adj) %>% nrow()
 #apple 5/45 sig
 dunn_table_out %>% filter(Avocado_P.adj <0.05) %>% nrow()
 dunn_table_out %>% drop_na(Avocado_P.adj) %>% nrow()
-#avo 6/78 sig
+#avo 2/55 sig
 dunn_table_out %>% filter(Carrot_P.adj <0.05) %>% nrow()
 dunn_table_out %>% drop_na(Carrot_P.adj) %>% nrow()
 #carrot 4/45 sig
 dunn_table_out %>% filter(Kiwifruit_P.adj <0.05) %>% nrow()
 dunn_table_out %>% drop_na(Kiwifruit_P.adj ) %>% nrow()
-#kiwifruit 0/153 sig
+#kiwifruit 0/120 sig
 dunn_table_out %>% filter(`Pak Choi_P.adj` <0.05) %>% nrow()
 dunn_table_out %>% drop_na(`Pak Choi_P.adj`) %>% nrow()
-#pak choi 0/120 sig
+#pak choi 0/105 sig
 dunn_table_out %>% filter(Radish_P.adj <0.05) %>% nrow()
 dunn_table_out %>% drop_na(Radish_P.adj ) %>% nrow()
 #radish 0/15 sig
@@ -364,7 +370,7 @@ dunn_table_out %>% drop_na(Onion_P.adj ) %>% nrow()
 #onion 1/66 sig
 dunn_table_out %>% filter(Pear_P.adj <0.05) %>% nrow()
 dunn_table_out %>% drop_na(Pear_P.adj ) %>% nrow()
-#pear 0/10 sig
+#pear 0/15 sig
 
 #running a model to see if can drop site as a predictor
 
@@ -502,7 +508,7 @@ dunn_table_out %>% drop_na(Apple_P.adj) %>% nrow()
 #apple 2/45 sig
 dunn_table_out %>% filter(`Pak Choi_P.adj` <0.05) %>% nrow()
 dunn_table_out %>% drop_na(`Pak Choi_P.adj`) %>% nrow()
-#pak choi 1/120 sig
+#pak choi 1/105 sig
 dunn_table_out %>% filter(Radish_P.adj <0.05) %>% nrow()
 dunn_table_out %>% drop_na(Radish_P.adj ) %>% nrow()
 #radish 2/15 sig
@@ -511,7 +517,7 @@ dunn_table_out %>% drop_na(Onion_P.adj ) %>% nrow()
 #onion 0/66 sig
 dunn_table_out %>% filter(Pear_P.adj <0.05) %>% nrow()
 dunn_table_out %>% drop_na(Pear_P.adj ) %>% nrow()
-#pear 0/10 sig
+#pear 0/15 sig
 
 #model
 
@@ -551,8 +557,11 @@ pchisq(summary(mod_site_qp)$dispersion * mod_site$df.residual,
 # significance for underdispersion
 anova(mod_qp,mod_site_qp,test='F')
 #not sure the best way to compare quasi-poisson models there such as think QAIC but not sure how to get it from glm
-#package mmmln
+#package mumin
 #https://www.rdocumentation.org/packages/MuMIn/versions/1.48.11/topics/QAIC
+library(MuMIn)
+model.sel(mod_site_qp,mod_qp,rank="QAIC",rank.args = list(chat = deviance(mod_site_qp) / df.residual(mod_site_qp)))
+
 
 #nb would be worse for underdispersion
 
