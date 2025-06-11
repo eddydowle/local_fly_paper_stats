@@ -292,7 +292,7 @@ library(lmtest)
 library(DHARMa)
 library(glmmTMB)
 
-#so site is variable across crops (e.g. not same site in each crops), so I think just site as a predictor and see if we can drop it
+#so site is variable across crops (e.g. not same site in each crops), so use site as a predictor and see if we can drop it
 
 #linear model#
 mod<-lm(Pollen.deposition~Crop,data=deposition_data_all_honeybee)
@@ -367,9 +367,135 @@ lrtest(full_modTMB_d,full_modTMB_d_site)
 
 #Better but pvalues are possibly meaningless on glmmTMB with disp due to over inflation of type 1 error. But I think we can say that the model is not improved with the addition of site?
 
-#############
-#mucking out#
-#############
+###################################################
+#using raw count data to model site#
+##################################################
+
+#brad has now sent me the raw count data with stigma counts to model this.
+#this means i can model site and add stigma count as the offset, meaning I can keep in carrot, pear and apple
+
+#bring in and merging data etc
+
+#fixed version of apple, pear and carrot using raw count, have added a collumn with stigma count
+deposition_data_rawpearcarrotapple<-read.csv('Copy of Stigma counts SVD_rawcounts.csv',header=T)
+
+#fitler original ones to ones that are counts for one stigma
+deposition_data_all_wholecounts<-deposition_data_all %>% filter(Crop!='Apple'&Crop!='Pear'&Crop!='Carrot'&Crop!='Kiwifruit')
+#add in column with stigma count as 1
+deposition_data_all_wholecounts$Stigma_count<-1
+
+#remake kiwi data with number of stigmas as a column
+#dropping non-honey bee bees from kiwi
+deposition_data_kiwi_fix_stigma<-deposition_data_kiwi %>% dplyr::select(Crop,Site,Order,tax,Male.pollen.first.stigma,Male.pollen.rest.stigmas.est,Number.of.stigmas) %>% mutate(Pollen.deposition=Male.pollen.first.stigma+Male.pollen.rest.stigmas.est) %>% dplyr::select(-Male.pollen.first.stigma,-Male.pollen.rest.stigmas.est) %>% filter(tax!='Bombus terrestris') %>%  filter(tax!='Bombus ruderatus') %>% filter(tax!='Leioproctus spp.') %>% filter(tax!='Lasioglossum spp.') %>% filter(tax!='Calliprason pallidus') %>% filter(tax!='') %>% dplyr::select(-Order) %>% drop_na(Pollen.deposition)
+unique(deposition_data_kiwi_fix_stigma$tax)
+#clean up kiwi data
+#exclude "Calliprason pallidus" not represented in the other crops and only 4 records
+deposition_data_kiwi_fix_stigma$tax   <- gsub("Bibionidae", "Dilophus nigrostigma", deposition_data_kiwi_fix_stigma$tax)
+unique(deposition_data_kiwi_fix_stigma$tax)
+
+deposition_data_kiwi_fix_stigma<-deposition_data_kiwi_fix_stigma %>% mutate(Bee.species = str_replace(tax, "control", "Control")) %>% dplyr::select(-tax) 
+unique(deposition_data_kiwi_fix_stigma$Bee.species)
+unique(deposition_data_kiwi_fix_stigma$Crop)
+deposition_data_kiwi_fix_stigma$Crop <- gsub("kiwifruit", "Kiwifruit", deposition_data_kiwi_fix_stigma$Crop)
+
+colnames(deposition_data_kiwi_fix_stigma)
+colnames(deposition_data_rawpearcarrotapple)
+colnames(deposition_data_all_wholecounts)
+
+#lining up so can bind kiwi on to the end of brads data
+#remove kiwi from brads set as it is wongly transformed
+names(deposition_data_all_wholecounts)[names(deposition_data_all_wholecounts) == 'Pollinator.species'] <- 'Bee.species'
+names(deposition_data_rawpearcarrotapple)[names(deposition_data_rawpearcarrotapple) == 'Pollinator.species'] <- 'Bee.species'
+unique(deposition_data_all_wholecounts$Crop)
+names(deposition_data_kiwi_fix_stigma)[names(deposition_data_kiwi_fix_stigma) == 'Number.of.stigmas'] <- 'Stigma_count'
+
+colnames(deposition_data)
+unique(deposition_data$Crop)
+deposition_data_all_wholecounts_com<-bind_rows(deposition_data_all_wholecounts,deposition_data_kiwi_fix_stigma)
+deposition_data_all_wholecounts_com<-bind_rows(deposition_data_all_wholecounts_com,deposition_data_rawpearcarrotapple)
+
+deposition_data_all_wholecounts_com$Bee_species<-NULL
+deposition_data_all_wholecounts_com$Pollen_deposition<-NULL
+
+#there is 3 rows with 0 for stigma count, going to remove as not sure what is going on there
+deposition_data_all_wholecounts_com <-deposition_data_all_wholecounts_com %>% filter(Stigma_count>0)
+
+###########running models################
+#dropping all non honey bees
+deposition_data_all_wholecounts_com_honeybee<-deposition_data_all_wholecounts_com %>% filter(Bee.species=='Apis mellifera')
+as.data.frame(sort(unique(deposition_data_all_wholecounts_com_honeybee$Site)))
+
+
+#glm#
+hist(deposition_data_all_wholecounts_com_honeybee$Pollen.deposition)
+
+full_mod1  <- glm(Pollen.deposition ~ Crop, data=deposition_data_all_wholecounts_com_honeybee,family = poisson, offset = log(Stigma_count))
+summary(full_mod1)
+full_mod1_nb  <- glm.nb(Pollen.deposition ~ Crop+log(Stigma_count), data=deposition_data_all_wholecounts_com_honeybee)
+summary(full_mod1_nb)
+lrtest(full_mod1,full_mod1_nb)
+#nb better fit
+
+#the offset is chocking I think on the variables that are one or two observations for a site/crop so removign these three which have <3 records per site/crop
+test<-deposition_data_all_wholecounts_com_honeybee %>% filter(Site!='Tallots Road'&Site!='Upton Downs'&Site!='Snodgrass road')
+
+full_mod1_nb  <- glm.nb(Pollen.deposition ~ Crop+log(Stigma_count), data=test)
+full_mod1_nb_site  <- glm.nb(Pollen.deposition ~ Crop+Site+log(Stigma_count), data=test)
+summary(full_mod1_nb_site)
+lrtest(full_mod1_nb,full_mod1_nb_site)
+#no benefit to adding in the site data in model
+simResids <- simulateResiduals(full_mod1_nb)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
+
+#adding dispformula to deal with heteroscedastic data
+full_modTMB<-glmmTMB(Pollen.deposition ~ Crop, dispformula = ~Crop,data=test,family=nbinom2,offset = log(Stigma_count))
+summary(full_modTMB)
+full_modTMB_site<-glmmTMB(Pollen.deposition ~ Crop+Site, dispformula = ~Crop,data=test,family=nbinom2,offset = log(Stigma_count))
+summary(full_modTMB_site)
+lrtest(full_modTMB,full_modTMB_site)
+#no benefit to adding in the site data in model
+simResids <- simulateResiduals(full_modTMB)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
+
+#even though pvalue isnt useful on tmm models its fairly conclusive that site isnt a effect 
+
+#just having a quick look across all crops in a SVD model with a offset
+######################################################################
+#raw counts of pollen and using stigma count as a offset in the model#
+######################################################################
+#model SVD across crops/species using stigma as a offset in the model
+#tying poisson
+head(deposition_data_all_wholecounts_com)
+mod<-glm(Pollen.deposition~Crop, data = deposition_data_all_wholecounts_com, family = poisson, offset = log(Stigma_count))
+summary(mod)
+mod_nb  <- glm.nb(Pollen.deposition~Crop+log(Stigma_count), data = deposition_data_all_wholecounts_com )
+summary(mod_nb)
+lrtest(mod,mod_nb)
+
+#with species in
+mod<-glm(Pollen.deposition~Crop*Bee.species, data = deposition_data_all_wholecounts_com, family = poisson, offset = log(Stigma_count))
+summary(mod)
+mod_nb  <- glm.nb(Pollen.deposition~Crop*Bee.species+log(Stigma_count), data = deposition_data_all_wholecounts_com )
+summary(mod_nb)
+lrtest(mod,mod_nb)
+
+#check model
+# Simulate residuals 
+simResids <- simulateResiduals(mod_nb)
+# Generate plots to compare the model residuals to expectations
+plot(simResids)
+
+#adding dispformula to deal with heteroscedastic data
+full_modTMB<-glmmTMB(Pollen.deposition ~ Crop, dispformula = ~Crop,data=deposition_data_all_wholecounts_com,family=nbinom2,offset = log(Stigma_count))
+summary(full_modTMB)
+full_modTMB_spe<-glmmTMB(Pollen.deposition ~ Crop*Bee.species, dispformula = ~Crop,data=deposition_data_all_wholecounts_com,family=nbinom2,offset = log(Stigma_count))
+summary(full_modTMB_site)
+lrtest(full_modTMB,full_modTMB_spe)
+
+#######mucking about
+############modeling from original data and ignoring fraction issue
 #what if I ignore the warnings about the fractions
 full_mod1  <- glm(Pollen.deposition ~ Crop, family="poisson", data=deposition_data_all_honeybee)
 summary(full_mod1)
@@ -413,4 +539,5 @@ lrtest(full_modTMB,full_modTMB_site)
 simResids <- simulateResiduals(full_modTMB)
 # Generate plots to compare the model residuals to expectations
 plot(simResids)
+
 
