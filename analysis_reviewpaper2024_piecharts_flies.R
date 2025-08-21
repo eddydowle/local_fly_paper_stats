@@ -9,14 +9,25 @@ library(svglite)
 
 setwd("C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024")
 
-apple<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Apple')
-pear<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Pear')
-avocado<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Avocado')
-kiwifruit<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Kiwifruit')
-pakchoi<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Pak choi')
-radish<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Radish')
-onion<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Onion')
-carrot<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Carrot')
+#apple<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Apple')
+#pear<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Pear')
+#avocado<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Avocado')
+#kiwifruit<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Kiwifruit')
+#pakchoi<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Pak choi')
+#radish<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Radish')
+#onion<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Onion')
+#carrot<-read_excel('Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Carrot')
+#there was an issue in carrot so using this new file
+apple<-read_excel('Daily insect counts all crops for Eddy.xlsx',sheet='Apple')
+pear<-read_excel('Daily insect counts all crops for Eddy.xlsx',sheet='Pear')
+avocado<-read_excel('Daily insect counts all crops for Eddy.xlsx',sheet='Avocado')
+kiwifruit<-read_excel('Daily insect counts all crops for Eddy.xlsx',sheet='Kiwifruit')
+pakchoi<-read_excel('Daily insect counts all crops for Eddy.xlsx',sheet='Pak choi')
+radish<-read_excel('Daily insect counts all crops for Eddy.xlsx',sheet='Radish')
+onion<-read_excel('Daily insect counts all crops for Eddy.xlsx',sheet='Onion')
+carrot<-read_excel('Daily insect counts all crops for Eddy.xlsx',sheet='Carrot')
+
+
 
 #apple contains apple and pear
 unique(apple$Crop)
@@ -407,49 +418,49 @@ ggsave(file=paste0(cropsp,"_","allareas_log1_fix",".svg"), plot=image, width=30,
 #doing an overview figure do it per crop by region and across crop
   #by region
   #iniditally I did this by scientific name but thats a dodgy column, Ordering is going to be a better column to do it on
-  apple_per_r_fly<-apple%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Region,Ordering)  %>% group_by(`Scientific name`,Region,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  apple_per_r_fly<-apple%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>%  select(`Corrected Daily Count`,Region,Ordering)  %>% group_by(Ordering,Region) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   apple_per_r_fly$crop<-'Apple'
   apple_reg_fe_n<-apple %>%  group_by(Region) %>%summarise(region_feild_count = n_distinct(`Location and season`))  
   apple_per_r_fly<-left_join(apple_per_r_fly,apple_reg_fe_n)
   apple_per_r_fly<-apple_per_r_fly %>% mutate(ave_feild_count=total_count/region_feild_count)
   
-  pear_per_r_fly<-pear%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Region,Ordering)  %>% group_by(`Scientific name`,Region,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  pear_per_r_fly<-pear%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>%  select(`Corrected Daily Count`,Region,Ordering)  %>% group_by(Ordering,Region) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   pear_per_r_fly$crop<-'Pear'
   pear_reg_fe_n<-pear %>%  group_by(Region) %>%summarise(region_feild_count = n_distinct(`Location and season`))  
   pear_per_r_fly<-left_join(pear_per_r_fly,pear_reg_fe_n)
   pear_per_r_fly<-pear_per_r_fly %>% mutate(ave_feild_count=total_count/region_feild_count)
   
-  avocado_per_r_fly<-avocado%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Region,Ordering)  %>% group_by(`Scientific name`,Region,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  avocado_per_r_fly<-avocado%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>%  select(`Corrected Daily Count`,Region,Ordering)  %>% group_by(Ordering,Region) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   avocado_per_r_fly$crop<-'Avocado'
   avocado_reg_fe_n<-avocado %>%  group_by(Region) %>%summarise(region_feild_count = n_distinct(`Location and season`))  
   avocado_per_r_fly<-left_join(avocado_per_r_fly,avocado_reg_fe_n)
   avocado_per_r_fly<-avocado_per_r_fly %>% mutate(ave_feild_count=total_count/region_feild_count)
   
-  kiwifruit_per_r_fly<-kiwifruit%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Region,Ordering)  %>% group_by(`Scientific name`,Region,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  kiwifruit_per_r_fly<-kiwifruit%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>%  select(`Corrected Daily Count`,Region,Ordering)  %>% group_by(Ordering,Region) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   kiwifruit_per_r_fly$crop<-'Kiwifruit'
   kiwifruit_reg_fe_n<-kiwifruit %>%  group_by(Region) %>%summarise(region_feild_count = n_distinct(`Location and season`))  
   kiwifruit_per_r_fly<-left_join(kiwifruit_per_r_fly,kiwifruit_reg_fe_n)
   kiwifruit_per_r_fly<-kiwifruit_per_r_fly %>% mutate(ave_feild_count=total_count/region_feild_count)
   
-  pakchoi_per_r_fly<-pakchoi%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Region,Ordering)  %>% group_by(`Scientific name`,Region,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  pakchoi_per_r_fly<-pakchoi%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>%  select(`Corrected Daily Count`,Region,Ordering)  %>% group_by(Ordering,Region) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   pakchoi_per_r_fly$crop<-'Pakchoi'
   pakchoi_reg_fe_n<-pakchoi %>%  group_by(Region) %>%summarise(region_feild_count = n_distinct(`Location and season`))  
   pakchoi_per_r_fly<-left_join(pakchoi_per_r_fly,pakchoi_reg_fe_n)
   pakchoi_per_r_fly<-pakchoi_per_r_fly %>% mutate(ave_feild_count=total_count/region_feild_count)
   
-  radish_per_r_fly<-radish%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Region,Ordering)  %>% group_by(`Scientific name`,Region,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  radish_per_r_fly<-radish%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>%  select(`Corrected Daily Count`,Region,Ordering)  %>% group_by(Ordering,Region) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   radish_per_r_fly$crop<-'Radish'
   radish_reg_fe_n<-radish %>%  group_by(Region) %>%summarise(region_feild_count = n_distinct(`Location and season`))  
   radish_per_r_fly<-left_join(radish_per_r_fly,radish_reg_fe_n)
   radish_per_r_fly<-radish_per_r_fly %>% mutate(ave_feild_count=total_count/region_feild_count)
   
-  onion_per_r_fly<-onion%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Region,Ordering)  %>% group_by(`Scientific name`,Region,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  onion_per_r_fly<-onion%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>%  select(`Corrected Daily Count`,Region,Ordering)  %>% group_by(Ordering,Region) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   onion_per_r_fly$crop<-'Onion'
   onion_reg_fe_n<-onion %>%  group_by(Region) %>%summarise(region_feild_count = n_distinct(`Location and season`))  
   onion_per_r_fly<-left_join(onion_per_r_fly,onion_reg_fe_n)
   onion_per_r_fly<-onion_per_r_fly %>% mutate(ave_feild_count=total_count/region_feild_count)
   
-  carrot_per_r_fly<-carrot%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Region,Ordering)  %>% group_by(`Scientific name`,Region,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  carrot_per_r_fly<-carrot%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>%  select(`Corrected Daily Count`,Region,Ordering)  %>% group_by(Ordering,Region) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% group_by(Region) %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   carrot_per_r_fly$crop<-'Carrot'
 carrot_reg_fe_n<-carrot %>%  group_by(Region) %>%summarise(region_feild_count = n_distinct(`Location and season`))  
 carrot_per_r_fly<-left_join(carrot_per_r_fly,carrot_reg_fe_n)
@@ -460,21 +471,26 @@ allcrops_per_r_fly<-rbind(apple_per_r_fly,pear_per_r_fly,avocado_per_r_fly,kiwif
 
 #  brads_col_2$Species <- forcats::fct_relevel(brads_col_2$Species ,levels(brads_col_2$Code))
 levels(brads_col_2$Species)
-allcrops_per_r_fly$`Scientific name` <- factor(allcrops_per_r_fly$`Scientific name`, levels=unique(allcrops_per_r_fly$`Scientific name`[order(allcrops_per_r_fly$Ordering)]), ordered=TRUE)
-  #brads_col_2$Species <- forcats::fct_relevel(allcrops_per_r_fly$`Scientific name` ,levels(allcrops_per_r_fly$Ordering))
+
+allcrops_per_r_fly$Ordering<- factor(allcrops_per_r_fly$Ordering, levels = sort(unique(as.integer(as.character(allcrops_per_r_fly$Ordering)))))
+
+sort(unique(as.integer(as.character(allcrops_per_r_fly$Ordering))))
+
+
+levels(allcrops_per_r_fly$Ordering)
+sort(allcrops_per_r_fly$Ordering)
+
+brads_col_2$Species <- forcats::fct_relevel(brads_col_2$Species ,levels(brads_col_2$Code))
 levels(brads_col_2$Species)
-test<-unique(allcrops_per_r_fly$`Scientific name`)
-test  
-brads_col_2$Species
-  
-  allcrops_per_r_fly %>%   ggplot(aes(x = Region, y = per, fill = `Scientific name`)) +
+levels(brads_col_2$Code)
+  allcrops_per_r_fly %>%   ggplot(aes(x = Region, y = per, fill = Ordering)) +
     geom_bar(position='stack',stat='identity',width=0.9) +
     facet_grid(.~crop, scales = "free", space = "free") +
     #facet_wrap(~crop, scales = "free") +
     theme_bw(base_size = 12) +
     theme(strip.text.x = element_text(angle = 0,size=7),axis.text.x = element_text(angle = 90,size=7,hjust=1))+
  #   scale_fill_manual(values=c('lightgrey','black'))+
-    scale_fill_manual(values=with(brads_col_2,setNames(Colour,Species)))+
+    scale_fill_manual(values=with(brads_col_2,setNames(Colour,Code)))+
  #   scale_fill_manual(values=with(brads_col_2,setNames(Colour,Code)))+
     ggtitle(paste('Fly diversity'))+
     ylab('Abundance')+
@@ -485,13 +501,13 @@ brads_col_2$Species
 
   
   #whave to be average counts not this, so need to use count average by feild count 
-  allcrops_per_r_fly %>%   ggplot(aes(x = Region, y = ave_feild_count, fill = `Scientific name`)) +
+  allcrops_per_r_fly %>%   ggplot(aes(x = Region, y = ave_feild_count, fill = Ordering)) +
     geom_bar(position='stack',stat='identity',width=0.9) +
     facet_grid(.~crop, scales = "free", space = "free") +
     #facet_wrap(~crop, scales = "free") +
     theme_bw(base_size = 12) +
     theme(strip.text.x = element_text(angle = 0,size=7),axis.text.x = element_text(angle = 90,size=7,hjust=1))+
-    scale_fill_manual(values=with(brads_col_2,setNames(Colour,Species)))+
+    scale_fill_manual(values=with(brads_col_2,setNames(Colour,Code)))+
     ggtitle(paste('Fly diversity'))+
     ylab('Ave counts per feild')+
     theme(
@@ -501,31 +517,31 @@ brads_col_2$Species
   
     
   #by crop
-  apple_per_r_fly<-apple%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Ordering)  %>% group_by(`Scientific name`,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  apple_per_r_fly<-apple%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering))%>% select(`Corrected Daily Count`,Ordering)  %>% group_by(Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   apple_per_r_fly$crop<-'Apple'
   apple_reg_fe_n<-apple %>%  group_by(Crop) %>%summarise(crop_feild_count = n_distinct(`Location and season`))  
   apple_per_r_fly<-left_join(apple_per_r_fly,apple_reg_fe_n,by=c('crop'='Crop'))
   apple_per_r_fly<-apple_per_r_fly %>% mutate(ave_crop_count=total_count/crop_feild_count)
   
-  pear_per_r_fly<-pear%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Ordering)  %>% group_by(`Scientific name`,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  pear_per_r_fly<-pear%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering))%>% select(`Corrected Daily Count`,Ordering)  %>% group_by(Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   pear_per_r_fly$crop<-'Pear'
   pear_reg_fe_n<-pear %>%  group_by(Crop) %>%summarise(crop_feild_count = n_distinct(`Location and season`))  
   pear_per_r_fly<-left_join(pear_per_r_fly,pear_reg_fe_n,by=c('crop'='Crop'))
   pear_per_r_fly<-pear_per_r_fly %>% mutate(ave_crop_count=total_count/crop_feild_count)
   
-  avocado_per_r_fly<-avocado%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Ordering)  %>% group_by(`Scientific name`,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  avocado_per_r_fly<-avocado%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering))%>% select(`Corrected Daily Count`,Ordering)  %>% group_by(Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   avocado_per_r_fly$crop<-'Avocado'
   avocado_reg_fe_n<-avocado %>%  group_by(Crop) %>%summarise(crop_feild_count = n_distinct(`Location and season`))  
   avocado_per_r_fly<-left_join(avocado_per_r_fly,avocado_reg_fe_n,by=c('crop'='Crop'))
   avocado_per_r_fly<-avocado_per_r_fly %>% mutate(ave_crop_count=total_count/crop_feild_count)
   
-  kiwifruit_per_r_fly<-kiwifruit%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Ordering)  %>% group_by(`Scientific name`,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  kiwifruit_per_r_fly<-kiwifruit%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering))%>% select(`Corrected Daily Count`,Ordering)  %>% group_by(Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   kiwifruit_per_r_fly$crop<-'Kiwifruit'
   kiwifruit_reg_fe_n<-kiwifruit %>%  group_by(Crop) %>%summarise(crop_feild_count = n_distinct(`Location and season`))  
   kiwifruit_per_r_fly<-left_join(kiwifruit_per_r_fly,kiwifruit_reg_fe_n,by=c('crop'='Crop'))
   kiwifruit_per_r_fly<-kiwifruit_per_r_fly %>% mutate(ave_crop_count=total_count/crop_feild_count)
   
-  pakchoi_per_r_fly<-pakchoi%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Ordering)  %>% group_by(`Scientific name`,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  pakchoi_per_r_fly<-pakchoi%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering))%>% select(`Corrected Daily Count`,Ordering)  %>% group_by(Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   pakchoi_per_r_fly$crop<-'Pakchoi'
   pakchoi_reg_fe_n<-pakchoi %>%  group_by(Crop) %>%summarise(crop_feild_count = n_distinct(`Location and season`))  
   pakchoi_reg_fe_n$Crop <- sub("Pak Choi", "Pakchoi", pakchoi_reg_fe_n$Crop)
@@ -533,19 +549,19 @@ brads_col_2$Species
   pakchoi_per_r_fly
   pakchoi_per_r_fly<-pakchoi_per_r_fly %>% mutate(ave_crop_count=total_count/crop_feild_count)
   
-  radish_per_r_fly<-radish%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Ordering)  %>% group_by(`Scientific name`,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  radish_per_r_fly<-radish%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering))%>% select(`Corrected Daily Count`,Ordering)  %>% group_by(Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   radish_per_r_fly$crop<-'Radish'
   radish_reg_fe_n<-radish %>%  group_by(Crop) %>%summarise(crop_feild_count = n_distinct(`Location and season`))  
   radish_per_r_fly<-left_join(radish_per_r_fly,radish_reg_fe_n,by=c('crop'='Crop'))
   radish_per_r_fly<-radish_per_r_fly %>% mutate(ave_crop_count=total_count/crop_feild_count)
   
-  onion_per_r_fly<-onion%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Ordering)  %>% group_by(`Scientific name`,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  onion_per_r_fly<-onion%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering))%>% select(`Corrected Daily Count`,Ordering)  %>% group_by(Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   onion_per_r_fly$crop<-'Onion'
   onion_reg_fe_n<-onion %>%  group_by(Crop) %>%summarise(crop_feild_count = n_distinct(`Location and season`))  
   onion_per_r_fly<-left_join(onion_per_r_fly,onion_reg_fe_n,by=c('crop'='Crop'))
   onion_per_r_fly<-onion_per_r_fly %>% mutate(ave_crop_count=total_count/crop_feild_count)
   
-  carrot_per_r_fly<-carrot%>% filter(Grouping!='Bees')%>% filter(`Scientific name`!='(blank)')%>% select(`Corrected Daily Count`,`Scientific name`,Ordering)  %>% group_by(`Scientific name`,Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
+  carrot_per_r_fly<-carrot%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering))%>% select(`Corrected Daily Count`,Ordering)  %>% group_by(Ordering) %>% summarise(total_count=sum(`Corrected Daily Count`)) %>% ungroup() %>% mutate(per=100*total_count/sum(total_count)) %>% ungroup()
   carrot_per_r_fly$crop<-'Carrot'
   carrot_reg_fe_n<-carrot %>%  group_by(Crop) %>%summarise(crop_feild_count = n_distinct(`Location and season`))  
   carrot_per_r_fly<-left_join(carrot_per_r_fly,carrot_reg_fe_n,by=c('crop'='Crop'))
@@ -555,18 +571,17 @@ brads_col_2$Species
   
   #  brads_col_2$Species <- forcats::fct_relevel(brads_col_2$Species ,levels(brads_col_2$Code))
   levels(brads_col_2$Species)
-  allcrops_per_r_fly$`Scientific name` <- factor(allcrops_per_r_fly$`Scientific name`, levels=unique(allcrops_per_r_fly$`Scientific name`[order(allcrops_per_r_fly$Ordering)]), ordered=TRUE)
-  #brads_col_2$Species <- forcats::fct_relevel(allcrops_per_r_fly$`Scientific name` ,levels(allcrops_per_r_fly$Ordering))
-  levels(brads_col_2$Species)
   
-  allcrops_per_r_fly %>%   ggplot(aes(x = crop, y = per, fill = `Scientific name`)) +
+  allcrops_per_r_fly$Ordering<- factor(allcrops_per_r_fly$Ordering, levels = sort(unique(as.integer(as.character(allcrops_per_r_fly$Ordering)))))
+
+  allcrops_per_r_fly %>%   ggplot(aes(x = crop, y = per, fill = Ordering)) +
     geom_bar(position='stack',stat='identity',width=0.9) +
     facet_grid(.~crop, scales = "free", space = "free") +
     #facet_wrap(~crop, scales = "free") +
     theme_bw(base_size = 12) +
     theme(strip.text.x = element_text(angle = 90,size=7),axis.text.x = element_text(angle = 90,size=7,hjust=1))+
     #   scale_fill_manual(values=c('lightgrey','black'))+
-    scale_fill_manual(values=with(brads_col_2,setNames(Colour,Species)))+
+    scale_fill_manual(values=with(brads_col_2,setNames(Colour,Code)))+
     #   scale_fill_manual(values=with(brads_col_2,setNames(Colour,Code)))+
     ggtitle(paste('Fly diversity'))+
     ylab('Abundance')+
@@ -577,13 +592,13 @@ brads_col_2$Species
       legend.key.size = unit(1,"line")) 
   
   #whave to be average counts not this, so need to use count average by feild count 
-  allcrops_per_r_fly %>%   ggplot(aes(x = crop, y = ave_crop_count, fill = `Scientific name`)) +
+  allcrops_per_r_fly %>%   ggplot(aes(x = crop, y = ave_crop_count, fill = Ordering)) +
     geom_bar(position='stack',stat='identity',width=0.9) +
     facet_grid(.~crop, scales = "free", space = "free") +
     #facet_wrap(~crop, scales = "free") +
     theme_bw(base_size = 12) +
     theme(strip.text.x = element_text(angle = 0,size=7),axis.text.x = element_text(angle = 90,size=7,hjust=1))+
-    scale_fill_manual(values=with(brads_col_2,setNames(Colour,Species)))+
+    scale_fill_manual(values=with(brads_col_2,setNames(Colour,Code)))+
     ggtitle(paste('Fly diversity'))+
     ylab('Ave counts per feild')+
     xlab('Crop')+

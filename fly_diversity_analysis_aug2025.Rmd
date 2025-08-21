@@ -1,0 +1,2004 @@
+---
+title: "Fly_diversity_analysis_aug2025"
+author: "Eddy Dowle"
+date: "2025-08-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lme4)
+library(readxl)
+library(svglite)
+library(vegan)
+library(iNEXT.3D)
+library(rcartocolor)
+library(pairwiseAdonis)
+library(gplots)
+library(plotly)
+library(ochRe)
+```
+
+## Fly diversity
+
+I've done quite a few different things, just trying to work out the best way to use it. I would say that it seems fairly consistent in the patterns between my 'all in analysis' and 'only day 1' analysis. Which I think is good. Apple, pear and kiwifruit suffer a bit later on when it comes to having samples with only 0's for non bee species or only one species which makes MDS plots etc imposible to converge so they are filtered in and out throughout the analysis. 
+
+
+```{r cars}
+##############
+#data sorting#
+##############
+
+#basic diversity stats + MDS
+#means I need to deal with the naming issues on species ID
+#sorting data feel free to ignore its just getting it into a format I can use
+
+#setwd("C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024")
+
+apple<-read_excel('C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024/Daily insect counts all crops for Eddy_mod.xlsx',sheet='Apple')
+pear<-read_excel('C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024/Daily insect counts all crops for Eddy_mod.xlsx',sheet='Pear')
+avocado<-read_excel('C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024/Daily insect counts all crops for Eddy_mod.xlsx',sheet='Avocado')
+kiwifruit<-read_excel('C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024/Daily insect counts all crops for Eddy_mod.xlsx',sheet='Kiwifruit')
+pakchoi<-read_excel('C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024/Daily insect counts all crops for Eddy_mod.xlsx',sheet='Pak choi')
+radish<-read_excel('C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024/Daily insect counts all crops for Eddy_mod.xlsx',sheet='Radish')
+onion<-read_excel('C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024/Daily insect counts all crops for Eddy_mod.xlsx',sheet='Onion')
+carrot<-read_excel('C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024/Daily insect counts all crops for Eddy_mod.xlsx',sheet='Carrot')
+#brad wants them grouped on the column labeled 'Ordering'
+#scientific name is wacky so stick to the ordering column as the grouping variable
+#remove “Ephydridae spp.” from Pak choi and onion data
+#as per brad is wasnt counted in the other crops so needs to be removed
+onion<-onion %>% filter(`Scientific name`!='Ephydridae spp.')
+pakchoi<-pakchoi %>% filter(`Scientific name`!='Ephydridae spp.')
+
+################
+#data wrangling#
+################
+
+#sorting out daily counts as diversity statistics will be based on daily counts:
+###apple
+#day 1, 2, 3
+apple_day1<-apple %>% select(-`Day 2`,-`Day 3`) %>% mutate(Day='Day_1') %>% filter(`Day 1`>0) %>% rename(raw_count = `Day 1`)
+apple_day2<-apple %>% select(-`Day 1`,-`Day 3`) %>% mutate(Day='Day_2') %>% filter(`Day 2`>0) %>% rename(raw_count = `Day 2`)
+apple_day3<-apple %>% select(-`Day 1`,-`Day 2`) %>% mutate(Day='Day_3') %>% filter(`Day 3`>0) %>% rename(raw_count = `Day 3`)
+
+apple_day<-rbind(apple_day1,apple_day2,apple_day3)  
+
+#just make sure everything is tidy tidy 
+apple_fly<-apple_day%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Apple_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Ordering,Region,`Location and season`,Day,raw_count,Crop) %>% group_by(sample_ID,Ordering,Region,`Location and season`,Day,Crop) %>% summarise(raw_count=sum(raw_count)) %>% ungroup()
+
+#some replicates have only 0 counts for non bees and are being dropped  so need to be added back in
+samples<-apple_day%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Apple_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Region,`Location and season`,Day,Crop) %>% unique()
+
+apple_fly<-full_join(apple_fly,samples)
+
+###pear
+#day 1, 2, 3
+pear_day1<-pear %>% select(-`Day 2`,-`Day 3`) %>% mutate(Day='Day_1') %>% filter(`Day 1`>0) %>% rename(raw_count = `Day 1`)
+pear_day2<-pear %>% select(-`Day 1`,-`Day 3`) %>% mutate(Day='Day_2') %>% filter(`Day 2`>0) %>% rename(raw_count = `Day 2`)
+pear_day3<-pear %>% select(-`Day 1`,-`Day 2`) %>% mutate(Day='Day_3') %>% filter(`Day 3`>0) %>% rename(raw_count = `Day 3`)
+
+pear_day<-rbind(pear_day1,pear_day2,pear_day3) 
+
+#just make sure everything is tidy tidy 
+pear_fly<-pear_day%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Pear_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Ordering,Region,`Location and season`,Day,raw_count,Crop) %>% group_by(sample_ID,Ordering,Region,`Location and season`,Day,Crop) %>% summarise(raw_count=sum(raw_count)) %>% ungroup()
+
+#some replicates have only 0 counts for non bees and are being dropped  so need to be added back in
+samples<-pear_day%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Pear_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Region,`Location and season`,Day,Crop) %>% unique()
+
+pear_fly<-full_join(pear_fly,samples)
+
+
+###avocado
+#day 1, 2, 3
+avocado_day1<-avocado %>% select(-`Day 2`,-`Day 3`) %>% mutate(Day='Day_1') %>% filter(`Day 1`>0) %>% rename(raw_count = `Day 1`)
+avocado_day2<-avocado %>% select(-`Day 1`,-`Day 3`) %>% mutate(Day='Day_2') %>% filter(`Day 2`>0) %>% rename(raw_count = `Day 2`)
+avocado_day3<-avocado %>% select(-`Day 1`,-`Day 2`) %>% mutate(Day='Day_3') %>% filter(`Day 3`>0) %>% rename(raw_count = `Day 3`)
+
+avocado_day<-rbind(avocado_day1,avocado_day2,avocado_day3) 
+#just make sure everything is tidy tidy 
+avocado_fly<-avocado_day%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Avocado_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Ordering,Region,`Location and season`,Day,raw_count,Crop) %>% group_by(sample_ID,Ordering,Region,`Location and season`,Day,Crop) %>% summarise(raw_count=sum(raw_count)) %>% ungroup()
+
+#some replicates have only 0 counts for non bees and are being dropped  so need to be added back in
+samples<-avocado_day%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Avocado_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Region,`Location and season`,Day,Crop) %>% unique()
+
+avocado_fly<-full_join(avocado_fly,samples)
+
+###kiwifruit
+#day 1, 2, 3
+kiwifruit_day1<-kiwifruit %>% select(-`Day 2`,-`Day 3`) %>% mutate(Day='Day_1') %>% filter(`Day 1`>0) %>% rename(raw_count = `Day 1`)
+kiwifruit_day2<-kiwifruit %>% select(-`Day 1`,-`Day 3`) %>% mutate(Day='Day_2') %>% filter(`Day 2`>0) %>% rename(raw_count = `Day 2`)
+kiwifruit_day3<-kiwifruit %>% select(-`Day 1`,-`Day 2`) %>% mutate(Day='Day_3') %>% filter(`Day 3`>0) %>% rename(raw_count = `Day 3`)
+
+kiwifruit_day<-rbind(kiwifruit_day1,kiwifruit_day2,kiwifruit_day3) 
+
+#just make sure everything is tidy tidy 
+kiwifruit_fly<-kiwifruit_day%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Kiwifruit_',Region,'_',`Location and season`,'_',Day)) %>% select(Crop,sample_ID,Ordering,Region,`Location and season`,Day,raw_count) %>% group_by(sample_ID,Ordering,Region,`Location and season`,Day,Crop) %>% summarise(raw_count=sum(raw_count)) %>% ungroup()
+
+#some replicates have only 0 counts for non bees and are being dropped  so need to be added back in
+samples<-kiwifruit_day%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Kiwifruit_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Region,`Location and season`,Day,Crop) %>% unique()
+
+kiwifruit_fly<-full_join(kiwifruit_fly,samples)
+
+###pakchoi
+#day 1
+pakchoi_day1<-pakchoi %>% mutate(Day='Day_1') %>% rename(raw_count = `Corrected Daily Count`)
+
+pakchoi_day<-pakchoi_day1 
+
+#just make sure everything is tidy tidy 
+pakchoi_fly<-pakchoi_day%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Pakchoi_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Ordering,Region,`Location and season`,Day,raw_count,Crop) %>% group_by(sample_ID,Ordering,Region,`Location and season`,Day,Crop) %>% summarise(raw_count=sum(raw_count)) %>% ungroup()
+
+#some replicates have only 0 counts for non bees and are being dropped  so need to be added back in
+samples<-pakchoi_day%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Pakchoi_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Region,`Location and season`,Day,Crop) %>% unique()
+
+pakchoi_fly<-full_join(pakchoi_fly,samples)
+
+
+###radish
+#day 1
+radish_day1<-radish %>% mutate(Day='Day_1') %>% rename(raw_count = `Corrected Daily Count`)
+
+radish_day<-radish_day1 
+
+#just make sure everything is tidy tidy 
+radish_fly<-radish_day%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Radish_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Ordering,Region,`Location and season`,Day,raw_count,Crop) %>% group_by(sample_ID,Ordering,Region,`Location and season`,Day,Crop) %>% summarise(raw_count=sum(raw_count)) %>% ungroup()
+
+#some replicates have only 0 counts for non bees and are being dropped  so need to be added back in
+samples<-radish_day%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Radish_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Region,`Location and season`,Day,Crop) %>% unique()
+
+radish_fly<-full_join(radish_fly,samples)
+
+###onion
+#day 1
+onion_day1<-onion %>% mutate(Day='Day_1') %>% rename(raw_count = `Corrected Daily Count`)
+
+onion_day<-onion_day1 
+
+#just make sure everything is tidy tidy 
+onion_fly<-onion_day%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Onion_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Ordering,Region,`Location and season`,Day,raw_count,Crop) %>% group_by(sample_ID,Ordering,Region,`Location and season`,Day,Crop) %>% summarise(raw_count=sum(raw_count)) %>% ungroup()
+
+#some replicates have only 0 counts for non bees and are being dropped  so need to be added back in
+samples<-onion_day%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Onion_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Region,`Location and season`,Day,Crop) %>% unique()
+
+onion_fly<-full_join(onion_fly,samples)
+
+###carrot
+#day 1 2 3
+carrot_day1<-carrot %>% select(-`Day 2`,-`Day 3`) %>% mutate(Day='Day_1') %>% filter(`Day 1`>0) %>% rename(raw_count = `Day 1`)
+carrot_day2<-carrot %>% select(-`Day 1`,-`Day 3`) %>% mutate(Day='Day_2') %>% filter(`Day 2`>0) %>% rename(raw_count = `Day 2`)
+carrot_day3<-carrot %>% select(-`Day 1`,-`Day 2`) %>% mutate(Day='Day_3') %>% filter(`Day 3`>0) %>% rename(raw_count = `Day 3`)
+
+carrot_day<-rbind(carrot_day1,carrot_day2,carrot_day3) 
+#just make sure everything is tidy tidy 
+carrot_fly<-carrot_day%>% filter(Grouping!='Bees')%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Carrot_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Ordering,Region,`Location and season`,Day,raw_count,Crop) %>% group_by(sample_ID,Ordering,Region,`Location and season`,Day,Crop) %>% summarise(raw_count=sum(raw_count)) %>% ungroup()
+
+#some replicates have only 0 counts for non bees and are being dropped  so need to be added back in
+samples<-carrot_day%>% mutate(Ordering = factor(Ordering)) %>% mutate(sample_ID = paste0('Carrot_',Region,'_',`Location and season`,'_',Day)) %>% select(sample_ID,Region,`Location and season`,Day,Crop) %>% unique()
+
+carrot_fly<-full_join(carrot_fly,samples)
+
+
+##############################
+#generating tables and counts#
+##############################
+
+allcrops_per_r_fly<-rbind(apple_fly,pear_fly,avocado_fly,kiwifruit_fly,pakchoi_fly,radish_fly,onion_fly,carrot_fly)  
+
+unique(allcrops_per_r_fly$Crop)
+
+counts<-allcrops_per_r_fly %>% ungroup() %>% select(sample_ID,Ordering,raw_count)
+
+#I need to fill up the NA's for the samples with 0 flies with some dummy 0 for ones species to keep them in the next stage - so this is just to add a 0 value in and I've chosed the insect '27' at random (cause i know it occurs in the dataset so Im not adding something not present)
+
+#in '' as its a factor not a number
+counts$Ordering[is.na(counts$Ordering)] <- '27'
+counts$raw_count[is.na(counts$raw_count)] <- 0
+#transform wide
+counts_wide<-counts %>% pivot_wider(names_from=`Ordering`,values_from = `raw_count`)
+counts_wide[is.na(counts_wide)] <- 0
+counts_wide<-counts_wide %>% remove_rownames %>% column_to_rownames(var="sample_ID")
+
+#setting up meta data sheet for anova against variables, species richness vs crops
+meta_data<-allcrops_per_r_fly %>% ungroup() %>% select(sample_ID,Crop,Region,`Location and season`,Day) %>% unique()
+
+#adding in: spring vs summer flowering to metadata table
+head(meta_data)
+meta_data<-meta_data %>% mutate(flowertime = case_when(Crop == 'Apple' ~ "Spring",Crop == 'Pear' ~ "Spring",Crop == 'Avocado' ~ "Spring",Crop == 'Kiwifruit' ~ "Spring",Crop == 'Carrot' ~ "Summer",Crop == 'Radish' ~ "Summer",Crop == 'Onion' ~ "Summer",Crop == 'Pak Choi' ~ "Summer"))
+
+#regrouping regions
+meta_data$Region_original<-meta_data$Region
+meta_data<-meta_data %>% mutate(Region = case_when(Region_original == 'Ashburton' ~ "Canterbury", Region_original == 'Darfield-Kirwee' ~ "Canterbury",Region_original == 'North Waimakariri' ~ "Canterbury",Region_original == 'Leeston' ~ "Canterbury",Region_original == 'Methven' ~ "Canterbury",Region_original == 'Waipara' ~ "Canterbury",Region_original == 'Kaitaia' ~ "Northland",Region_original == 'Whangarei' ~ "Whangarei",Region_original == 'Wairarapa' ~ "Wairarapa",Region_original == 'Bay of Plenty' ~ "Bay of Plenty",Region_original == 'Hawkes Bay' ~ "Hawkes Bay",Region_original == 'Motueka' ~ "Tasman",Region_original == 'Nelson' ~ "Tasman",Region_original == 'Takaka' ~ "Tasman",Region_original == 'Marlborough' ~ "Marlborough",Region_original == 'Gisborne' ~ "Poverty Bay",Region_original == 'Central Otago' ~ "Otago",Region_original == 'Southland' ~ "Southland",Region_original == 'Auckland' ~ "Auckland",Region_original == 'Canterbury' ~ "Canterbury"))
+#unique(meta_data$Region)
+#meta_data %>% select(Region, Region_original) %>% unique()
+
+```
+
+## Network plots
+These are based on average counts per day across all replicates
+
+```{r diversity_network}
+#need to calculate average number of counts per tree per sample
+#head(allcrops_per_r_fly)
+allcrops_summarisedcounts<-allcrops_per_r_fly %>% select(sample_ID,Ordering,Crop,raw_count) %>% group_by(Crop,Ordering) %>% summarise(total_insects=sum(raw_count))
+sample_count<-allcrops_per_r_fly %>% select(sample_ID,Crop) %>% group_by(Crop) %>% summarise(sample_per_crop=n_distinct(sample_ID))
+allcrops_summarisedcounts<-left_join(allcrops_summarisedcounts,sample_count) %>% mutate(average_count=total_insects/sample_per_crop)
+#remove those NAs that were added in for the 0's
+allcrops_summarisedcounts <- na.omit(allcrops_summarisedcounts)
+
+brads_col_2<-read_excel('C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024/Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Insect_ordering')
+head(brads_col_2)
+brads_col_2$color_hex<-col2hex(brads_col_2$Colour)
+nodes_notthebees<-data.frame(name=c(as.character(allcrops_summarisedcounts$Ordering),as.character((allcrops_summarisedcounts$Crop))) %>% unique())
+
+allcrops_summarisedcounts$IDsource <- match(allcrops_summarisedcounts$Ordering, nodes_notthebees$name)-1 
+allcrops_summarisedcounts$IDtarget <- match(allcrops_summarisedcounts$Crop, nodes_notthebees$name)-1
+
+node_col<-nodes_notthebees
+brads_col_2$Code<-as.character(brads_col_2$Code)
+brads_col_2_cut <-brads_col_2 %>% select(Code,color_hex) %>% unique() %>% na.omit()
+node_col<-left_join(node_col,brads_col_2_cut,by=c('name'='Code'))
+#add colours for crops
+col_bound<-rcartocolor::carto_pal(n=9,name='Prism')
+
+node_col<-node_col %>% mutate(color_hex = case_when(name == 'Apple' ~ "#5F4690",name == 'Avocado' ~ "#1D6996",name == 'Carrot' ~ "#38A6A5",name == 'Kiwifruit' ~ "#0F8554",name == 'Onion' ~ "#73AF48",name == 'Pak Choi' ~ "#EDAD08",name == 'Pear' ~ "#E17C05",name == 'Radish' ~ "#CC503E",
+    TRUE ~ color_hex))
+#brads new colours
+node_col<-node_col %>% mutate(color_hex = case_when(name == 'Apple' ~ "#007b83",name == 'Avocado' ~ "#6e7d3c",name == 'Carrot' ~ "#CD951C",name == 'Kiwifruit' ~ "#b5a53c",name == 'Onion' ~ "#6baed6",name == 'Pak Choi' ~ "#E0C591",name == 'Pear' ~ "#b78080",name == 'Radish' ~ "#516295",
+    TRUE ~ color_hex))
+#col_bound<-c("#6e7d3c", "#007b83","#b78080","#b5a53c","#E0C591","#516295","#CD951C","#b4daeb")
+
+allcrops_summarisedcounts<-left_join(allcrops_summarisedcounts,node_col,by=c('Ordering'='name'))
+
+plot_ly(
+  type = "sankey",
+  orientation = "h",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 20,
+              line = list(color = "black", width = 0.5),
+              label = node_col$name,
+              color=node_col$color_hex
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              color=allcrops_summarisedcounts$color_hex),
+  textfont = list(size = 10),
+  width = 700,
+  height = 500
+) %>%
+  layout(title = "Sankey Diagram",
+         font = list(size = 14),
+         margin = list(t = 40, l = 20, r = 10, b = 10))
+
+#o set opacity I need to switch to rgba format rather than hex
+allcrops_summarisedcounts<-allcrops_summarisedcounts %>% rowwise() %>% mutate(rgba=paste0('rgba(',paste(col2rgb(color_hex),collapse=','),',0.5)')) 
+
+
+
+plot_ly(
+  type = "sankey",
+  arrangement='snap',
+  #domain =list(
+  # x=c(0,1),
+  #  y=c(0,1)
+  #),
+  orientation = "h",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 15,
+              line = list(color = "black", width = 0.5),
+              label = as.factor(node_col$name),
+              color=node_col$color_hex
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              #     value = test_merge_ave6trees$sum_6_tree),
+              color=allcrops_summarisedcounts$rgba
+  )
+) %>%
+  layout(title = "Sankey Diagram",
+         font = list(size = 10),
+         xaxis = list(showgrid=F,zeroline=F),
+         yaxis=list(showgrid=F,zeroline=F))
+
+
+#brad wants crops at the top (just to be difficult)
+allcrops_summarisedcounts<-allcrops_per_r_fly %>% select(sample_ID,Ordering,Crop,raw_count) %>% group_by(Crop,Ordering) %>% summarise(total_insects=sum(raw_count))
+sample_count<-allcrops_per_r_fly %>% select(sample_ID,Crop) %>% group_by(Crop) %>% summarise(sample_per_crop=n_distinct(sample_ID))
+allcrops_summarisedcounts<-left_join(allcrops_summarisedcounts,sample_count) %>% mutate(average_count=total_insects/sample_per_crop)
+#remove those NAs that were added in for the 0's
+allcrops_summarisedcounts <- na.omit(allcrops_summarisedcounts)
+
+brads_col_2<-read_excel('C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024/Copy of fly Pie chart data for Eddyv2_flies.xlsx',sheet='Insect_ordering')
+head(brads_col_2)
+brads_col_2$color_hex<-col2hex(brads_col_2$Colour)
+nodes_notthebees<-data.frame(name=c(as.character(allcrops_summarisedcounts$Ordering),as.character((allcrops_summarisedcounts$Crop))) %>% unique())
+
+allcrops_summarisedcounts$IDsource <- match(allcrops_summarisedcounts$Crop, nodes_notthebees$name)-1
+  
+allcrops_summarisedcounts$IDtarget <- match(allcrops_summarisedcounts$Ordering, nodes_notthebees$name)-1 
+node_col<-nodes_notthebees
+brads_col_2$Code<-as.character(brads_col_2$Code)
+brads_col_2_cut <-brads_col_2 %>% select(Code,color_hex) %>% unique() %>% na.omit()
+node_col<-left_join(node_col,brads_col_2_cut,by=c('name'='Code'))
+#add colours for crops
+col_bound<-rcartocolor::carto_pal(n=9,name='Prism')
+
+node_col<-node_col %>% mutate(color_hex = case_when(name == 'Apple' ~ "#007b83",name == 'Avocado' ~ "#6e7d3c",name == 'Carrot' ~ "#CD951C",name == 'Kiwifruit' ~ "#b5a53c",name == 'Onion' ~ "#6baed6",name == 'Pak Choi' ~ "#E0C591",name == 'Pear' ~ "#b78080",name == 'Radish' ~ "#516295",
+    TRUE ~ color_hex))
+
+allcrops_summarisedcounts<-left_join(allcrops_summarisedcounts,node_col,by=c('Ordering'='name'))
+
+plot_ly(
+  type = "sankey",
+  orientation = "v",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 20,
+              line = list(color = "black", width = 0.5),
+              label = node_col$name,
+              color=node_col$color_hex
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              color=allcrops_summarisedcounts$color_hex),
+  textfont = list(size = 10),
+  width = 700,
+  height = 500
+) %>%
+  layout(font = list(size = 14),
+         margin = list(t = 40, l = 20, r = 10, b = 10))
+
+#o set opacity I need to switch to rgba format rather than hex
+allcrops_summarisedcounts<-allcrops_summarisedcounts %>% rowwise() %>% mutate(rgba=paste0('rgba(',paste(col2rgb(color_hex),collapse=','),',0.5)')) 
+
+
+
+plot_ly(
+  type = "sankey",
+  arrangement='snap',
+  #domain =list(
+  # x=c(0,1),
+  #  y=c(0,1)
+  #),
+  orientation = "v",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 15,
+              line = list(color = "black", width = 0.5),
+              label = as.factor(node_col$name),
+              color=node_col$color_hex
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              #     value = test_merge_ave6trees$sum_6_tree),
+              color=allcrops_summarisedcounts$rgba
+  )
+) %>%
+  layout(font = list(size = 10),
+         xaxis = list(showgrid=F,zeroline=F),
+         yaxis=list(showgrid=F,zeroline=F))
+
+#talked about changing the colours schemes to things just done for SVD as well
+#or only the top 10 count sets
+#or intersect of both
+
+#top 10 count sets
+head(allcrops_summarisedcounts)
+top_10_taxa<-allcrops_summarisedcounts %>% select(Ordering, average_count) %>% group_by(Ordering) %>% summarise(totalsum=sum(average_count)) %>% arrange(desc(totalsum)) %>% slice_head(n = 10)
+unique(node_col$name)
+top_10_taxa<-c(top_10_taxa$Ordering,"Apple","Avocado","Carrot","Kiwifruit","Onion","Pak Choi","Pear","Radish")
+#taxa that have SVD data associated with them are:
+#calliphora stygia: 13
+#calliphora vicina: 14
+#lucilla sericata: 15
+#pollenia psudorudis: 19
+#pollenia spp.: 20
+#hydrotaea rostrata: 22
+#delia platura: 24 #bit of a shit pollinator in terms of SVD
+#oxysarcodexia varia: 26
+#prophystricia alcis: 27
+#eristalis tenax: 32
+#melangyna novaezelandiae: 33
+#melanostoma fasciatum: 34
+#helophilus hochstelleri: 36
+#helophilus cingulatus: 37
+#allographta dorsalis: 39
+#odontomyia spp: 43
+#dilophus nigrostigma: 47
+#zorion guttigerum: 55 #bit of a shit pollinator in terms of SVD
+svd_taxa<-c('13','14','15','19','20','22','24','26','27','32','33','34','36','37','39','43','47','55',"Apple","Avocado","Carrot","Kiwifruit","Onion","Pak Choi","Pear","Radish")
+
+#top 10
+node_col<-node_col %>% mutate(col_top10=case_when(name %in% top_10_taxa ~ color_hex, TRUE ~ '#D3D3D3'))
+allcrops_summarisedcounts<-allcrops_summarisedcounts %>% mutate(col_top10=case_when(Ordering %in% top_10_taxa ~ color_hex, TRUE ~ '#D3D3D3'))
+
+plot_ly(
+  type = "sankey",
+  orientation = "v",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 20,
+              line = list(color = "black", width = 0.5),
+              label = node_col$name,
+              color=node_col$col_top10
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              color=allcrops_summarisedcounts$col_top10),
+  textfont = list(size = 10),
+  width = 700,
+  height = 500
+) %>%
+  layout(font = list(size = 14),
+         margin = list(t = 40, l = 20, r = 10, b = 10))
+
+
+#to set grey opacity I need to switch to rgba format rather than hex
+allcrops_summarisedcounts<-allcrops_summarisedcounts %>% rowwise() %>% mutate(rgba_top10=paste0('rgba(',paste(col2rgb(col_top10),collapse=','),',1)')) 
+
+allcrops_summarisedcounts$rgba_top10<-gsub('rgba(211,211,211,1)','rgba(211,211,211,0.5)',allcrops_summarisedcounts$rgba_top10, fixed = TRUE)
+
+plot_ly(
+  type = "sankey",
+  arrangement='snap',
+  #domain =list(
+  # x=c(0,1),
+  #  y=c(0,1)
+  #),
+  orientation = "v",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 15,
+              line = list(color = "black", width = 0.5),
+              label = as.factor(node_col$name),
+              color=node_col$col_top10
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              #     value = test_merge_ave6trees$sum_6_tree),
+              color=allcrops_summarisedcounts$rgba_top10
+  )
+) %>%
+  layout(font = list(size = 10),
+         xaxis = list(showgrid=F,zeroline=F),
+         yaxis=list(showgrid=F,zeroline=F))
+
+#things that we have SVD for:
+
+#svd
+node_col<-node_col %>% mutate(col_svd=case_when(name %in% svd_taxa ~ color_hex, TRUE ~ '#D3D3D3'))
+allcrops_summarisedcounts<-allcrops_summarisedcounts %>% mutate(col_svd=case_when(Ordering %in% svd_taxa ~ color_hex, TRUE ~ '#D3D3D3'))
+
+
+plot_ly(
+  type = "sankey",
+  orientation = "v",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 20,
+              line = list(color = "black", width = 0.5),
+              label = node_col$name,
+              color=node_col$col_svd
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              color=allcrops_summarisedcounts$col_svd),
+  textfont = list(size = 10),
+  width = 700,
+  height = 500
+) %>%
+  layout(font = list(size = 14),
+         margin = list(t = 40, l = 20, r = 10, b = 10))
+
+
+#to set grey opacity I need to switch to rgba format rather than hex
+allcrops_summarisedcounts<-allcrops_summarisedcounts %>% rowwise() %>% mutate(rgba_svd=paste0('rgba(',paste(col2rgb(col_svd),collapse=','),',1)')) 
+
+allcrops_summarisedcounts$rgba_svd<-gsub('rgba(211,211,211,1)','rgba(211,211,211,0.5)',allcrops_summarisedcounts$rgba_svd, fixed = TRUE)
+
+plot_ly(
+  type = "sankey",
+  arrangement='snap',
+  #domain =list(
+  # x=c(0,1),
+  #  y=c(0,1)
+  #),
+  orientation = "v",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 15,
+              line = list(color = "black", width = 0.5),
+              label = as.factor(node_col$name),
+              color=node_col$col_svd
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              #     value = test_merge_ave6trees$sum_6_tree),
+              color=allcrops_summarisedcounts$rgba_svd
+  )
+) %>%
+  layout(font = list(size = 10),
+         xaxis = list(showgrid=F,zeroline=F),
+         yaxis=list(showgrid=F,zeroline=F))
+
+#no labels
+plot_ly(
+  type = "sankey",
+  arrangement='snap',
+  #domain =list(
+  # x=c(0,1),
+  #  y=c(0,1)
+  #),
+  orientation = "v",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 15,
+              line = list(color = "black", width = 0.5),
+            #  label = as.factor(node_col$name),
+              color=node_col$col_svd
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              #     value = test_merge_ave6trees$sum_6_tree),
+              color=allcrops_summarisedcounts$rgba_svd
+  )
+) %>%
+  layout(font = list(size = 10),
+         xaxis = list(showgrid=F,zeroline=F),
+         yaxis=list(showgrid=F,zeroline=F))
+
+#intersect of both while ignoring two that didnt have good svd
+top_10_taxa_svd<- top_10_taxa[top_10_taxa %in% svd_taxa]
+
+node_col<-node_col %>% mutate(col_top10_svd=case_when(name %in% top_10_taxa_svd ~ color_hex, TRUE ~ '#D3D3D3'))
+allcrops_summarisedcounts<-allcrops_summarisedcounts %>% mutate(col_top10_svd=case_when(Ordering %in% top_10_taxa_svd ~ color_hex, TRUE ~ '#D3D3D3'))
+
+
+plot_ly(
+  type = "sankey",
+  orientation = "v",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 20,
+              line = list(color = "black", width = 0.5),
+              label = node_col$name,
+              color=node_col$col_top10_svd
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              color=allcrops_summarisedcounts$col_top10_svd),
+  textfont = list(size = 10),
+  width = 700,
+  height = 500
+) %>%
+  layout(font = list(size = 14),
+         margin = list(t = 40, l = 20, r = 10, b = 10))
+
+
+#to set grey opacity I need to switch to rgba format rather than hex
+allcrops_summarisedcounts<-allcrops_summarisedcounts %>% rowwise() %>% mutate(rgba_top10_svd=paste0('rgba(',paste(col2rgb(col_top10_svd),collapse=','),',1)')) 
+
+allcrops_summarisedcounts$rgba_top10_svd<-gsub('rgba(211,211,211,1)','rgba(211,211,211,0.5)',allcrops_summarisedcounts$rgba_top10_svd, fixed = TRUE)
+
+plot_ly(
+  type = "sankey",
+  arrangement='snap',
+  #domain =list(
+  # x=c(0,1),
+  #  y=c(0,1)
+  #),
+  orientation = "v",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 15,
+              line = list(color = "black", width = 0.5),
+              label = as.factor(node_col$name),
+              color=node_col$col_top10_svd
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              #     value = test_merge_ave6trees$sum_6_tree),
+              color=allcrops_summarisedcounts$rgba_top10_svd
+  )
+) %>%
+  layout(font = list(size = 10),
+         xaxis = list(showgrid=F,zeroline=F),
+         yaxis=list(showgrid=F,zeroline=F))
+
+#run without 24 as that one is a bit shit on SVD
+top_10_taxa_svd_fil <- top_10_taxa_svd[!top_10_taxa_svd %in% c('24')]
+
+node_col<-node_col %>% mutate(col_top10_svd_fil=case_when(name %in% top_10_taxa_svd_fil ~ color_hex, TRUE ~ '#D3D3D3'))
+allcrops_summarisedcounts<-allcrops_summarisedcounts %>% mutate(col_top10_svd_fil=case_when(Ordering %in% top_10_taxa_svd_fil ~ color_hex, TRUE ~ '#D3D3D3'))
+
+
+plot_ly(
+  type = "sankey",
+  orientation = "v",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 20,
+              line = list(color = "black", width = 0.5),
+              label = node_col$name,
+              color=node_col$col_top10_svd_fil
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              color=allcrops_summarisedcounts$col_top10_svd_fil),
+  textfont = list(size = 10),
+  width = 700,
+  height = 500
+) %>%
+  layout(font = list(size = 14),
+         margin = list(t = 40, l = 20, r = 10, b = 10))
+
+
+#to set grey opacity I need to switch to rgba format rather than hex
+allcrops_summarisedcounts<-allcrops_summarisedcounts %>% rowwise() %>% mutate(rgba_top10_svd_fil=paste0('rgba(',paste(col2rgb(col_top10_svd_fil),collapse=','),',1)')) 
+
+allcrops_summarisedcounts$rgba_top10_svd_fil<-gsub('rgba(211,211,211,1)','rgba(211,211,211,0.5)',allcrops_summarisedcounts$rgba_top10_svd_fil, fixed = TRUE)
+
+plot_ly(
+  type = "sankey",
+  arrangement='snap',
+  #domain =list(
+  # x=c(0,1),
+  #  y=c(0,1)
+  #),
+  orientation = "v",
+  #  valueformat=".2f", #switch this on if doing per 6 trees otherwise it will rescale decimals
+  node = list(pad = 15,
+              thickness = 15,
+              line = list(color = "black", width = 0.5),
+              label = as.factor(node_col$name),
+              color=node_col$col_top10_svd_fil
+  ),
+  link = list(source = allcrops_summarisedcounts$IDsource,
+              target = allcrops_summarisedcounts$IDtarget,
+              value = allcrops_summarisedcounts$average_count,
+              #     value = test_merge_ave6trees$sum_6_tree),
+              color=allcrops_summarisedcounts$rgba_top10_svd_fil
+  )
+) %>%
+  layout(font = list(size = 10),
+         xaxis = list(showgrid=F,zeroline=F),
+         yaxis=list(showgrid=F,zeroline=F))
+
+```
+
+## Diversity statistics
+
+Alpha diversity analyses on all data (regardless of replication number)
+
+# Species diversity
+Eddy needs to double check that TukeyHSD is the most appropriate posthoc test on the anova analyses
+
+```{r diversity}
+#count species per property
+sppr <- specnumber(counts_wide)
+#head(sppr)
+#sppr
+#zeros are in there now, just because of the merge above they are out of order
+####################################################
+#impact of crop, region and flowering time
+###################################################
+
+#crop
+sppr_aov <-aov(sppr ~ Crop, data = meta_data)
+summary(sppr_aov)
+TukeyHSD(sppr_aov)
+
+#impact of region
+sppr_aov <-aov(sppr ~ Region, data = meta_data)
+summary(sppr_aov)
+TukeyHSD(sppr_aov)
+
+#impact of crop & region
+sppr_aov <-aov(sppr ~ Crop+Region, data = meta_data)
+summary(sppr_aov)
+TukeyHSD(sppr_aov)
+
+#region within a crop
+#I did this for beta and then decided I prefer it because of the biased sampling across crops/regions
+#radish has only one location
+categories_crop <- meta_data %>% filter(Crop!='Radish') %>% select(Crop) %>% unique()
+categories_crop$Crop <- gsub("Pak Choi", "Pakchoi", categories_crop$Crop)
+for (item in categories_crop$Crop){
+  print(paste('Analysing',item))
+#filtered_sppr <- sppr[grepl('^Apple', names(sppr))]
+filtered_sppr <- sppr[grepl(paste0('^',item), names(sppr))]
+filtered_meta_data<-meta_data %>% filter(sample_ID %in% names(filtered_sppr))
+sppr_aov <-aov(filtered_sppr ~ Region, data = filtered_meta_data)
+print(summary(sppr_aov))
+print(TukeyHSD(sppr_aov))
+}
+
+#impact of flowering time
+sppr_aov <-aov(sppr ~ flowertime, data = meta_data)
+summary(sppr_aov)
+#TukeyHSD(sppr_aov)
+
+#can plot that out
+sppr_df <- sppr %>% 
+  enframe() %>% 
+  full_join(meta_data, by = c("name" = "sample_ID"))
+#just picking a colour scheme for now will change depending on how we order the final plots
+col_bound<-rcartocolor::carto_pal(n=9,name='Prism')
+#col_bound<-c("#38381C", "#A04C00","#701C00","#285034","#E0C591","#E0DEDA","#CD951C","#7D99B5")
+col_bound<-c("#6e7d3c", "#007b83","#b78080","#b5a53c","#E0C591","#516295","#CD951C","#6baed6")
+#Trying to order by flowering time
+#this is based of brads chart but note
+#apple and pear flower at the same time so Radish, Carrot and Onion so they are ordered alphabetically
+#so maybe its better to just say grouped by spring and summer flowering?
+#sppr_df$Crop <- factor(sppr_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+#reordering based on brads order
+sppr_df$Crop <- factor(sppr_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+plot_sppr <- ggplot(sppr_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+  scale_fill_manual(values=col_bound)+
+  theme_bw()+
+  labs(x = "Crop",
+       y = "Number of species per sample",
+       title = "Species richness")
+plot_sppr
+
+#other significant factor was region
+plot_sppr <- ggplot(sppr_df, aes(x = Region, y = value, fill = Crop)) +
+  geom_boxplot() +
+  facet_wrap(~Crop, scales = "free_x")+
+  theme_bw()+
+  scale_fill_manual(values=col_bound)+
+  labs(x = "Region",
+       y = "Number of species per sample",
+       title = "Species richness")+
+  theme(axis.text.x = element_text(angle = 90,size=7,hjust=1))
+
+plot_sppr
+
+#other significant factor was flowertime
+plot_sppr <- ggplot(sppr_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+ # facet_wrap(~flowertime, scales="free")+
+  facet_wrap(~flowertime, scales = "free_x")+
+#  facet_grid(.~flowertime,drop = TRUE) +
+  theme_bw()+
+  scale_fill_manual(values=col_bound)+
+  labs(x = "Region",
+       y = "Number of species per sample",
+       title = "Species richness")+
+  theme(axis.text.x = element_text(angle = 90,size=7,hjust=1))
+
+plot_sppr
+
+```
+
+## Simpson
+
+```{r diversitysimpson}
+#########
+#simpson#
+#########
+
+#using simpson which is less sensitive to rare species which should be more robust to the sampling biases in the data
+simpsondiv<-diversity(counts_wide,index='simpson')
+#head(simpsondiv)
+####################################################
+#impact of crop, region and flowering time
+###################################################
+
+#crop
+simpsondiv_aov <-aov(simpsondiv ~ Crop, data = meta_data)
+summary(simpsondiv_aov)
+TukeyHSD(simpsondiv_aov)
+
+#impact of region
+simpsondiv_aov <-aov(simpsondiv ~ Region, data = meta_data)
+summary(simpsondiv_aov)
+TukeyHSD(simpsondiv_aov)
+
+#impact of crop and region
+simpsondiv_aov <-aov(simpsondiv ~ Crop+Region, data = meta_data)
+summary(simpsondiv_aov)
+TukeyHSD(simpsondiv_aov)
+
+#region within a crop
+#I did this for beta and then decided I prefer it because of the biased sampling across crops/regions
+#radish has only one location
+categories_crop <- meta_data %>% filter(Crop!='Radish') %>% select(Crop) %>% unique()
+categories_crop$Crop <- gsub("Pak Choi", "Pakchoi", categories_crop$Crop)
+for (item in categories_crop$Crop){
+  print(paste('Analysing',item))
+#filtered_sppr <- sppr[grepl('^Apple', names(sppr))]
+filtered_simpsondiv <- simpsondiv[grepl(paste0('^',item), names(simpsondiv))]
+filtered_meta_data<-meta_data %>% filter(sample_ID %in% names(filtered_simpsondiv))
+simpsondiv_aov <-aov(filtered_simpsondiv ~ Region, data = filtered_meta_data)
+print(summary(simpsondiv_aov))
+print(TukeyHSD(simpsondiv_aov))
+}
+
+#impact of flowering time
+simpsondiv_aov <-aov(simpsondiv ~ flowertime, data = meta_data)
+summary(simpsondiv_aov)
+#TukeyHSD(simpsondiv_aov)
+
+#can plot that out
+simpsondiv_df <- simpsondiv %>% 
+  enframe() %>% 
+  full_join(meta_data, by = c("name" = "sample_ID"))
+
+#simpsondiv_df$Crop <- factor(simpsondiv_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+#brads order
+simpsondiv_df$Crop <- factor(simpsondiv_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+#just crop
+plot_sppr <- ggplot(simpsondiv_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+  scale_fill_manual(values=col_bound)+
+  theme_bw()+
+  labs(x = "Crop",
+       y = "Simpson",
+       title = "Species richness: simpson")
+plot_sppr
+
+#other significant factor was flowertime
+plot_sppr <- ggplot(simpsondiv_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+  facet_wrap(~flowertime, scales = "free_x")+
+  theme_bw()+
+  scale_fill_manual(values=col_bound)+
+  labs(x = "Region",
+       y = "Simpson",
+       title = "Species richness: simpson")+
+  theme(axis.text.x = element_text(angle = 90,size=7,hjust=1))
+
+plot_sppr
+
+```
+
+
+## Shannon
+
+I actually dont like Simpson, when say apple has a bunch of 1's its getting a very high score as its perfectly even. So trying shannon as an alternative
+
+
+```{r diversity_shannon}
+#########
+#shannon#
+#########
+
+
+#having a look at shannon
+shannondiv<-diversity(counts_wide)
+#head(shannondiv)
+#crop
+shannondiv_aov <-aov(shannondiv ~ Crop, data = meta_data)
+summary(shannondiv_aov)
+tukey_test<-TukeyHSD(shannondiv_aov)
+tukey_test<-tukey_test$Crop
+write.csv(tukey_test,'Alpha_shannon_diversity_allreplicates_countsvscrops.csv',quote = F,row.names = T)
+
+
+#impact of region
+shannondiv_aov <-aov(shannondiv ~ Region, data = meta_data)
+summary(shannondiv_aov)
+TukeyHSD(shannondiv_aov)
+
+#impact of crop and region
+shannondiv_aov <-aov(shannondiv ~ Crop+Region, data = meta_data)
+summary(shannondiv_aov)
+TukeyHSD(shannondiv_aov)
+
+#region within a crop
+#I did this for beta and then decided I prefer it because of the biased sampling across crops/regions
+#radish has only one location
+categories_crop <- meta_data %>% filter(Crop!='Radish') %>% select(Crop) %>% unique()
+categories_crop$Crop <- gsub("Pak Choi", "Pakchoi", categories_crop$Crop)
+for (item in categories_crop$Crop){
+  print(paste('Analysing',item))
+#filtered_sppr <- sppr[grepl('^Apple', names(sppr))]
+filtered_shannondiv <- shannondiv[grepl(paste0('^',item), names(shannondiv))]
+filtered_meta_data<-meta_data %>% filter(sample_ID %in% names(filtered_shannondiv))
+shannondiv_aov <-aov(filtered_shannondiv ~ Region, data = filtered_meta_data)
+print(summary(shannondiv_aov))
+print(TukeyHSD(shannondiv_aov))
+tukey_test<-TukeyHSD(shannondiv_aov)
+tukey_test<-tukey_test$Region
+write.csv(tukey_test,paste('Alpha_shannon_diversity_allreplicates_',item,'vsregion.csv'),quote = F,row.names = T)
+}
+
+#impact of flowering time
+shannondiv_aov <-aov(shannondiv ~ flowertime, data = meta_data)
+summary(shannondiv_aov)
+#TukeyHSD(shannondiv_aov)
+
+#can plot that out
+shannondiv_df <- shannondiv %>% 
+  enframe() %>% 
+  full_join(meta_data, by = c("name" = "sample_ID"))
+
+#shannondiv_df$Crop <- factor(shannondiv_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+#brads order
+shannondiv_df$Crop <- factor(shannondiv_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+#just crop
+plot_sppr <- ggplot(shannondiv_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+  scale_fill_manual(values=col_bound)+
+  theme_bw()+
+  labs(x = "Crop",
+       y = "Shannon",
+       title = "Species richness: shannon")
+plot_sppr
+
+
+#other significant factor was region
+plot_sppr <- ggplot(shannondiv_df, aes(x = Region, y = value, fill = Crop)) +
+  geom_boxplot() +
+  facet_wrap(~Crop, scales = "free_x")+
+  theme_bw()+
+  scale_fill_manual(values=col_bound)+
+  labs(x = "Region",
+       y = "Shannon",
+       title = "Species richness: shannon")+
+  theme(axis.text.x = element_text(angle = 90,size=7,hjust=1))
+
+plot_sppr
+
+
+#other significant factor was flowertime
+plot_sppr <- ggplot(shannondiv_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+  facet_wrap(~flowertime, scales = "free_x")+
+  theme_bw()+
+  scale_fill_manual(values=col_bound)+
+  labs(x = "Region",
+       y = "Shannon",
+       title = "Species richness: shannon")+
+  theme(axis.text.x = element_text(angle = 90,size=7,hjust=1))
+
+plot_sppr
+
+```
+
+## Beta diversity and MDS plots
+I have to remove the 0's (e.g. samples where there was no non-bee insects observed ~mostly apple/pear) but here it is:
+After reading this https://stats.stackexchange.com/questions/639594/permanova-with-vegan-adonis-for-three-factors-and-repeated-measures im trying to avoid us having to look at multi factors for beta diversity but we can chat about that if needed. For now I've removed them. 
+
+```{r diversity_beta}
+################
+#beta diversity#
+################
+
+#remove zero values:
+counts_wide_no0 <- counts_wide[rowSums(counts_wide == 0) != ncol(counts_wide), ]
+
+meta_data_no0<-meta_data %>% filter(sample_ID %in% row.names(counts_wide_no0))
+
+#crop
+perm<-adonis2(counts_wide_no0 ~ Crop,data=meta_data_no0)
+perm
+pairwise_adonis<-pairwise.adonis2(counts_wide_no0 ~ Crop, data = meta_data_no0)
+tests<-names(pairwise_adonis)
+tests<-tests[-1]
+columns= c("Test","pvalue")
+myData = data.frame(matrix(nrow = 0, ncol = length(columns))) 
+for (item in tests){
+#  print(item)
+   pvalue<-eval(parse(text =paste0('pairwise_adonis$','`',item,'`' ,'$`Pr(>F)`[1]')))
+#   print(pvalue)
+out<-data.frame(Test = item, pvalue = pvalue)
+#print(out)
+myData<-rbind(myData,out)
+      }
+
+write.csv(myData,'Pairwise_adonis_beta_diversity_allreplicates_countsvscrops.csv',quote = F,row.names = F)
+
+#flowertime
+perm<-adonis2(counts_wide_no0 ~ flowertime,data=meta_data_no0)
+perm
+#pairwise_adonis<-pairwise.adonis2(counts_wide_no0 ~ flowertime, data = meta_data_no0)
+#pairwise_adonis
+
+#I think to look at the impact of region within a crop we need to run this within a crop. This is because there is little overlap in regions between crops and the 0,0 situation makes it too confusing (at least for me)
+#so just testing does community composition vary between regions within a crop. 
+categories_crop <- meta_data %>% filter(Crop!='Radish') %>% select(Crop) %>% unique()
+categories_crop$Crop <- gsub("Pak Choi", "Pakchoi", categories_crop$Crop)
+for (item in categories_crop$Crop){
+  print(paste('Analysing',item))
+filtered_counts_wide_no0 <- counts_wide_no0[grepl(paste0('^',item), rownames(counts_wide_no0)), ] %>% select(where(~ sum(.) != 0))
+filtered_meta_data_no0<-meta_data %>% filter(sample_ID %in% row.names(filtered_counts_wide_no0))
+perm<-adonis2(filtered_counts_wide_no0 ~ Region,data=filtered_meta_data_no0)
+print(perm)
+pairwise_adonis<-pairwise.adonis2(filtered_counts_wide_no0 ~ Region, data = filtered_meta_data_no0)
+print(pairwise_adonis)
+tests<-names(pairwise_adonis)
+tests<-tests[-1]
+columns= c("Test","pvalue")
+myData = data.frame(matrix(nrow = 0, ncol = length(columns))) 
+for (item1 in tests){
+#  print(item)
+   pvalue<-eval(parse(text =paste0('pairwise_adonis$','`',item1,'`' ,'$`Pr(>F)`[1]')))
+#   print(pvalue)
+out<-data.frame(Test = item1, pvalue = pvalue)
+#print(out)
+myData<-rbind(myData,out)
+      }
+write.csv(myData,paste0('Pairwise_adonis_beta_diversity_allreplicates_regionvs',item,'.csv'),quote = F,row.names = F)
+}
+
+
+#MDS
+pk_NMDS <- metaMDS(counts_wide_no0,trymax=200)
+#doesnt converge - whats up?
+pk_NMDS
+#stress (ideally <0.2)
+
+stressplot(pk_NMDS)
+
+plot(pk_NMDS)
+
+plot_df <- scores(pk_NMDS, display = "sites") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("site") %>% 
+  full_join(meta_data_no0, by = c("site" = "sample_ID"))
+
+#plot_df$Crop <- factor(plot_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+plot_df$Crop <- factor(plot_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop)) +
+  geom_point(size = 2, alpha = 0.8) +
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  labs(title = "NMDS")
+plot_nmds
+
+```
+
+## Beta and MDS plot
+this is a little arbitary but means the MDS plot isnt trying to converge stuff with basically no data
+
+Eddy to look at pairwise.adonis for pairwise data (note that this seems to be a very different statistical test to what vegans::adonis2 does ... need to read)
+
+```{r diversity_betamin}
+#################################################################
+#setting a minimum count of 5 across at least 2 taxa#
+#################################################################
+#remove <5 counts:
+counts_wide_no0 <- counts_wide[rowSums(counts_wide) >= 5, ]
+#remove things that are only from a single species
+counts_wide_no0 <-counts_wide_no0[which(rowSums(1*(counts_wide_no0!=0))>1),]
+
+meta_data_no0<-meta_data %>% filter(sample_ID %in% row.names(counts_wide_no0))
+
+#redoing the beta as well
+#crop
+perm<-adonis2(counts_wide_no0 ~ Crop,data=meta_data_no0)
+perm
+pairwise_adonis<-pairwise.adonis2(counts_wide_no0 ~ Crop, data = meta_data_no0)
+pairwise_adonis
+tests<-names(pairwise_adonis)
+tests<-tests[-1]
+columns= c("Test","pvalue")
+myData = data.frame(matrix(nrow = 0, ncol = length(columns))) 
+for (item in tests){
+#  print(item)
+   pvalue<-eval(parse(text =paste0('pairwise_adonis$','`',item,'`' ,'$`Pr(>F)`[1]')))
+#   print(pvalue)
+out<-data.frame(Test = item, pvalue = pvalue)
+#print(out)
+myData<-rbind(myData,out)
+      }
+
+write.csv(myData,'Pairwise_adonis_beta_diversity_allreplicates_countsvscrops_mincount5.csv',quote = F,row.names = F)
+
+#flowertime
+perm<-adonis2(counts_wide_no0 ~ flowertime,data=meta_data_no0)
+perm
+#pairwise_adonis<-pairwise.adonis2(counts_wide_no0 ~ flowertime, data = meta_data_no0)
+#pairwise_adonis
+
+#I think to look at the impact of region within a crop we need to run this within a crop. This is because there is little overlap in regions between crops and the 0,0 situation makes it too confusing (at least for me)
+#so just testing does community composition vary between regions within a crop. 
+categories_crop <- meta_data %>% filter(Crop!='Radish') %>% select(Crop) %>% unique()
+categories_crop$Crop <- gsub("Pak Choi", "Pakchoi", categories_crop$Crop)
+for (item in categories_crop$Crop){
+  print(paste('Analysing',item))
+filtered_counts_wide_no0 <- counts_wide_no0[grepl(paste0('^',item), rownames(counts_wide_no0)), ] %>% select(where(~ sum(.) != 0))
+filtered_meta_data_no0<-meta_data %>% filter(sample_ID %in% row.names(filtered_counts_wide_no0))
+perm<-adonis2(filtered_counts_wide_no0 ~ Region,data=filtered_meta_data_no0)
+print(perm)
+pairwise_adonis<-pairwise.adonis2(filtered_counts_wide_no0 ~ Region, data = filtered_meta_data_no0)
+print(pairwise_adonis)
+tests<-names(pairwise_adonis)
+tests<-tests[-1]
+columns= c("Test","pvalue")
+myData = data.frame(matrix(nrow = 0, ncol = length(columns))) 
+for (item1 in tests){
+#  print(item)
+   pvalue<-eval(parse(text =paste0('pairwise_adonis$','`',item1,'`' ,'$`Pr(>F)`[1]')))
+#   print(pvalue)
+out<-data.frame(Test = item1, pvalue = pvalue)
+#print(out)
+myData<-rbind(myData,out)
+      }
+write.csv(myData,paste0('Pairwise_adonis_beta_diversity_allreplicates_regionvs',item,'_mincount5.csv'),quote = F,row.names = F)
+}
+
+#MDS
+pk_NMDS <- metaMDS(counts_wide_no0,trymax=200)
+#converges - yay - a little stressed but is a lot of data
+pk_NMDS
+#stress 
+stressplot(pk_NMDS)
+
+plot(pk_NMDS)
+
+plot_df <- scores(pk_NMDS, display = "sites") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("site") %>% 
+  full_join(meta_data_no0, by = c("site" = "sample_ID"))
+
+#plot_df$Crop <- factor(plot_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+plot_df$Crop <- factor(plot_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop)) +
+  geom_point(size = 2, alpha = 1) +
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop,shape=Crop)) +
+  geom_point(size = 3, alpha = 1) +
+  scale_shape_manual(values = c("Avocado" = 15, "Apple" = 15, "Pear" = 15, "Kiwifruit" = 15, "Pak Choi" = 16, "Radish" = 16, "Carrot" = 16, "Onion" = 16))+
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop,shape=Crop)) +
+  geom_point(size = 2, alpha = 1) +
+  scale_shape_manual(values = c("Avocado" = 16, "Apple" = 16, "Pear" = 16, "Kiwifruit" = 16, "Pak Choi" = 15, "Radish" = 15, "Carrot" = 15, "Onion" = 15))+
+  stat_ellipse(linetype = 1, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+# If you set the min at 6 it drops that outlier 
+
+counts_wide_no0 <- counts_wide[rowSums(counts_wide) >= 6, ]
+#remove things that are only from a single species
+counts_wide_no0 <-counts_wide_no0[which(rowSums(1*(counts_wide_no0!=0))>1),]
+
+meta_data_no0<-meta_data %>% filter(sample_ID %in% row.names(counts_wide_no0))
+#MDS
+pk_NMDS <- metaMDS(counts_wide_no0,trymax=200)
+#converges - yay - a little stressed but is a lot of data
+pk_NMDS
+#stress 
+stressplot(pk_NMDS)
+
+plot(pk_NMDS)
+
+plot_df <- scores(pk_NMDS, display = "sites") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("site") %>% 
+  full_join(meta_data_no0, by = c("site" = "sample_ID"))
+
+#plot_df$Crop <- factor(plot_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+plot_df$Crop <- factor(plot_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop)) +
+  geom_point(size = 2, alpha = 1) +
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop,shape=Crop)) +
+  geom_point(size = 3, alpha = 1) +
+  scale_shape_manual(values = c("Avocado" = 15, "Apple" = 15, "Pear" = 15, "Kiwifruit" = 15, "Pak Choi" = 16, "Radish" = 16, "Carrot" = 16, "Onion" = 16))+
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop,shape=Crop)) +
+  geom_point(size = 2, alpha = 1) +
+  scale_shape_manual(values = c("Avocado" = 16, "Apple" = 16, "Pear" = 16, "Kiwifruit" = 16, "Pak Choi" = 15, "Radish" = 15, "Carrot" = 15, "Onion" = 15))+
+  stat_ellipse(linetype = 1, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+```
+
+## Inext
+I next is designed to be robust to sampling so probably is very appropriate for this dataset
+
+```{r diversity_inext}
+########
+#innext#
+########
+library(iNEXT.3D)
+
+#generate a list of the unique sample locations
+categories <- unique(meta_data$Crop)
+categories
+
+#create empty list
+split_list <- list()
+#fill empty list with a presence absence OTU from each location
+
+head(allcrops_per_r_fly)
+
+#I need to fill up the NA's for the samples with 0 flies with some dummy 0 for ones species to keep them in the next stage - so this is just to add a 0 value in and I've chosed the insect '27' at random (cause i know it occurs in the dataset so Im not adding something not present)
+
+#in '' as its a factor not a number
+allcrops_per_r_fly_innext<-allcrops_per_r_fly
+allcrops_per_r_fly_innext$Ordering[is.na(allcrops_per_r_fly_innext$Ordering)] <- '27'
+allcrops_per_r_fly_innext$raw_count[is.na(allcrops_per_r_fly_innext$raw_count)] <- 0
+
+#create empty list
+split_list <- list()
+
+for (category in categories) {
+ print(category)
+   subset_data <- allcrops_per_r_fly_innext %>% filter(Crop == category)
+#  subset_data <- allcrops_per_r_fly_innext %>% filter(Crop == "Carrot")
+  test<-subset_data %>% ungroup() %>% dplyr::select(sample_ID,Ordering,raw_count)
+  test   <- test %>%  spread(key = sample_ID, value = raw_count)
+  test<-test %>% remove_rownames %>% column_to_rownames(var="Ordering")
+  test[is.na(test)] <- 0
+ # test <- test[rowSums(test == 0) != ncol(test), ]
+  test<-test %>% mutate(across(everything(), ~ ifelse(. > 0, 1, 0)))
+  split_list[[category]]<-as(test,'matrix')
+} 
+
+matrix_list <- list(data = list())
+for (category in categories) {
+  otu_table <- as(split_list[[category]], "matrix")
+  matrix_list[["data"]][[category]] <- otu_table
+}
+
+#here Im setting the endpoint as NULL which is double the input sample size (this is probably most robust)
+out.raw <- iNEXT3D(data = matrix_list$data, diversity = 'TD', q = c(0, 1, 2), datatype = 'incidence_raw', nboot = 50,endpoint=NULL)
+
+#there is various ways to look at these plots:
+#within a crop
+ggiNEXT3D(out.raw, type = 1, facet.var = 'Assemblage') + facet_wrap(~Assemblage, nrow = 3)
+
+#across crops
+ggiNEXT3D(out.raw, type = 1, facet.var = "Order.q")
+
+#sample completeness
+ggiNEXT3D(out.raw, type = 2, facet.var = "Order.q", color.var = "Assemblage")
+#running innext as abundance as well
+
+#create empty list
+split_list <- list()
+
+for (category in categories) {
+  print(category)
+  subset_data <- allcrops_per_r_fly_innext %>% filter(Crop == category)
+ # subset_data <- allcrops_per_r_fly_innext %>% filter(Crop == "Carrot")
+  test<-subset_data %>% ungroup() %>% dplyr::select(sample_ID,Ordering,raw_count)
+  test   <- test %>%  spread(key = sample_ID, value = raw_count)
+  test<-test %>% remove_rownames %>% column_to_rownames(var="Ordering")
+  test[is.na(test)] <- 0
+  test<-as.data.frame(rowSums(test))
+  colnames(test) <- c(paste0(category))
+  # test <- test[rowSums(test == 0) != ncol(test), ]
+ # test<-test %>% mutate(across(everything(), ~ ifelse(. > 0, 1, 0)))
+  split_list[[category]]<-as(test,'matrix')
+} 
+
+matrix_list <- list(data = list())
+for (category in categories) {
+  otu_table <- as(split_list[[category]], "matrix")
+  matrix_list[["data"]][[category]] <- otu_table
+}
+
+#here Im setting the endpoint as NULL which is double the input sample size (this is probably most robust)
+out.raw <- iNEXT3D(data = matrix_list$data, diversity = 'TD', q = c(0, 1, 2), datatype = 'abundance', nboot = 50,endpoint=NULL)
+
+#there is various ways to look at these plots:
+#within a sample
+ggiNEXT3D(out.raw, type = 1, facet.var = 'Assemblage') + facet_wrap(~Assemblage, nrow = 3)
+
+#across samples
+ggiNEXT3D(out.raw, type = 1, facet.var = "Order.q")
+
+#yes well I think we can agree across samples works better for apple and pear
+#but its interesting that avocado diversity depending on how you look at it can change quite a bit
+```
+
+## Doing analyses just on Day 1 samples to avoid the issue on uneven replication 
+I think this is probably the most conservative solution to this problem but Im happy to take other ideas
+
+```{r diversity_species_day1}
+######################################################################
+#conservatively taking only Day 1 samples and analysing
+######################################################################
+
+
+#conservatively if we just look at the first day due to all the biases in the data
+meta_data_day1<-meta_data %>% filter(Day=='Day_1')
+
+counts_day1<-allcrops_per_r_fly %>% ungroup() %>% filter(Day=='Day_1') %>% select(sample_ID,Ordering,raw_count)
+
+#I need to fill up the NA's for the samples with 0 flies with some dummy 0 for ones species to keep them in the next stage - so this is just to add a 0 value in and I've chosed the insect '27' at random (cause i know it occurs in the dataset so Im not adding something not present)
+
+#in '' as its a factor not a number
+counts_day1$Ordering[is.na(counts_day1$Ordering)] <- '27'
+counts_day1$raw_count[is.na(counts_day1$raw_count)] <- 0
+#transform wide
+counts_day1_wide<-counts_day1 %>% pivot_wider(names_from=`Ordering`,values_from = `raw_count`)
+counts_day1_wide[is.na(counts_day1_wide)] <- 0
+counts_day1_wide<-counts_day1_wide %>% remove_rownames %>% column_to_rownames(var="sample_ID")
+
+#count species per property
+sppr <- specnumber(counts_day1_wide)
+head(sppr)
+#sppr
+#zeros are in there now, just because of the merge above they are out of order
+
+####################################################
+#impact of crop, region and flowering time
+###################################################
+
+#crop
+sppr_aov <-aov(sppr ~ Crop, data = meta_data_day1)
+summary(sppr_aov)
+TukeyHSD(sppr_aov)
+
+#impact of region
+sppr_aov <-aov(sppr ~ Region, data = meta_data_day1)
+summary(sppr_aov)
+TukeyHSD(sppr_aov)
+
+
+#impact of crop and region
+sppr_aov <-aov(sppr ~ Crop+Region, data = meta_data_day1)
+summary(sppr_aov)
+TukeyHSD(sppr_aov)
+#note region is no longer significant when we drop those other samples
+
+#region within a crop
+#I did this for beta and then decided I prefer it because of the biased sampling across crops/regions
+#radish has only one location
+categories_crop <- meta_data_day1 %>% filter(Crop!='Radish') %>% select(Crop) %>% unique()
+categories_crop$Crop <- gsub("Pak Choi", "Pakchoi", categories_crop$Crop)
+for (item in categories_crop$Crop){
+  print(paste('Analysing',item))
+#filtered_sppr <- sppr[grepl('^Apple', names(sppr))]
+filtered_sppr <- sppr[grepl(paste0('^',item), names(sppr))]
+filtered_meta_data_day1<-meta_data_day1 %>% filter(sample_ID %in% names(filtered_sppr))
+sppr_aov <-aov(filtered_sppr ~ Region, data = filtered_meta_data_day1)
+print(summary(sppr_aov))
+print(TukeyHSD(sppr_aov))
+}
+
+#impact of flowering time
+sppr_aov <-aov(sppr ~ flowertime, data = meta_data_day1)
+summary(sppr_aov)
+#TukeyHSD(sppr_aov)
+
+#can plot that out
+sppr_df <- sppr %>% 
+  enframe() %>% 
+  full_join(meta_data_day1, by = c("name" = "sample_ID"))
+
+#sppr_df$Crop <- factor(sppr_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+sppr_df$Crop <- factor(sppr_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+#just crop
+plot_sppr <- ggplot(sppr_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+  scale_fill_manual(values=col_bound)+
+  theme_bw()+
+  labs(x = "Crop",
+       y = "Number of species per sample",
+       title = "Species richness")
+plot_sppr
+
+#other significant factor was flowertime
+plot_sppr <- ggplot(sppr_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+  facet_wrap(~flowertime, scales = "free_x")+
+  theme_bw()+
+  scale_fill_manual(values=col_bound)+
+  labs(x = "Region",
+       y = "Number of species per sample",
+       title = "Species richness")+
+  theme(axis.text.x = element_text(angle = 90,size=7,hjust=1))
+
+plot_sppr
+```
+
+## Simpson day 1
+
+
+```{r diversity_simp_day1}
+#using simpson which is less sensitive to rare species which should be more robust to the sampling biases in the data
+simpsondiv<-diversity(counts_day1_wide,index='simpson')
+head(simpsondiv)
+#simpsondiv
+####################################################
+#impact of crop, region and flowering time
+###################################################
+
+#crop
+simpsondiv_aov <-aov(simpsondiv ~ Crop, data = meta_data_day1)
+summary(simpsondiv_aov)
+TukeyHSD(simpsondiv_aov)
+
+#impact of region
+simpsondiv_aov <-aov(simpsondiv ~ Region, data = meta_data_day1)
+summary(simpsondiv_aov)
+TukeyHSD(simpsondiv_aov)
+
+#impact of crop and region
+simpsondiv_aov <-aov(simpsondiv ~ Crop+Region, data = meta_data_day1)
+summary(simpsondiv_aov)
+TukeyHSD(simpsondiv_aov)
+
+#region within a crop
+#I did this for beta and then decided I prefer it because of the biased sampling across crops/regions
+#radish has only one location
+categories_crop <- meta_data_day1 %>% filter(Crop!='Radish') %>% select(Crop) %>% unique()
+categories_crop$Crop <- gsub("Pak Choi", "Pakchoi", categories_crop$Crop)
+for (item in categories_crop$Crop){
+  print(paste('Analysing',item))
+#filtered_sppr <- sppr[grepl('^Apple', names(sppr))]
+filtered_simpsondiv <- simpsondiv[grepl(paste0('^',item), names(simpsondiv))]
+filtered_meta_data_day1<-meta_data_day1 %>% filter(sample_ID %in% names(filtered_simpsondiv))
+simpsondiv_aov <-aov(filtered_simpsondiv ~ Region, data = filtered_meta_data_day1)
+print(summary(simpsondiv_aov))
+print(TukeyHSD(simpsondiv_aov))
+}
+
+#impact of flowering time
+simpsondiv_aov <-aov(simpsondiv ~ flowertime, data = meta_data_day1)
+summary(simpsondiv_aov)
+#TukeyHSD(simpsondiv_aov)
+
+#can plot that out
+simpsondiv_df <- simpsondiv %>% 
+  enframe() %>% 
+  full_join(meta_data_day1, by = c("name" = "sample_ID"))
+
+#simpsondiv_df$Crop <- factor(simpsondiv_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+simpsondiv_df$Crop <- factor(simpsondiv_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+#just crop
+plot_sppr <- ggplot(simpsondiv_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+  scale_fill_manual(values=col_bound)+
+  theme_bw()+
+  labs(x = "Crop",
+       y = "Simpson",
+       title = "Species richness: simpson")
+plot_sppr
+
+#other significant factor was flowertime
+plot_sppr <- ggplot(simpsondiv_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+  facet_wrap(~flowertime, scales = "free_x")+
+  theme_bw()+
+  scale_fill_manual(values=col_bound)+
+  labs(x = "Region",
+       y = "Simpson",
+       title = "Species richness: simpson")+
+  theme(axis.text.x = element_text(angle = 90,size=7,hjust=1))
+
+plot_sppr
+```
+
+## Shannon day 1
+
+```{r diversity_shannon_day1}
+#########
+#shannon#
+#########
+
+#hmmmm I actually dont like that, when say apple has a bunch of 1's its getting a very high score as its perfectly even
+
+#having a look at shannon
+shannondiv<-diversity(counts_day1_wide)
+#head(shannondiv)
+#crop
+shannondiv_aov <-aov(shannondiv ~ Crop, data = meta_data_day1)
+summary(shannondiv_aov)
+TukeyHSD(shannondiv_aov)
+tukey_test<-TukeyHSD(shannondiv_aov)
+tukey_test<-tukey_test$Crop
+write.csv(tukey_test,'Alpha_shannon_diversity_onerep_countsvscrops.csv',quote = F,row.names = T)
+
+#impact of region
+shannondiv_aov <-aov(shannondiv ~ Region, data = meta_data_day1)
+summary(shannondiv_aov)
+TukeyHSD(shannondiv_aov)
+
+#impact of crop and region
+shannondiv_aov <-aov(shannondiv ~ Crop+Region, data = meta_data_day1)
+summary(shannondiv_aov)
+TukeyHSD(shannondiv_aov)
+#region significant in shannon
+
+#region within a crop
+#I did this for beta and then decided I prefer it because of the biased sampling across crops/regions
+#radish has only one location
+categories_crop <- meta_data_day1 %>% filter(Crop!='Radish') %>% select(Crop) %>% unique()
+categories_crop$Crop <- gsub("Pak Choi", "Pakchoi", categories_crop$Crop)
+for (item in categories_crop$Crop){
+  print(paste('Analysing',item))
+#filtered_sppr <- sppr[grepl('^Apple', names(sppr))]
+filtered_shannondiv <- shannondiv[grepl(paste0('^',item), names(shannondiv))]
+filtered_meta_data_day1<-meta_data_day1 %>% filter(sample_ID %in% names(filtered_shannondiv))
+shannondiv_aov <-aov(filtered_shannondiv ~ Region, data = filtered_meta_data_day1)
+print(summary(shannondiv_aov))
+print(TukeyHSD(shannondiv_aov))
+tukey_test<-TukeyHSD(shannondiv_aov)
+tukey_test<-tukey_test$Region
+write.csv(tukey_test,paste('Alpha_shannon_diversity_onerep_',item,'vsregion.csv'),quote = F,row.names = T)
+}
+
+#impact of flowering time
+shannondiv_aov <-aov(shannondiv ~ flowertime, data = meta_data_day1)
+summary(shannondiv_aov)
+#TukeyHSD(shannondiv_aov)
+
+#can plot that out
+shannondiv_df <- shannondiv %>% 
+  enframe() %>% 
+  full_join(meta_data_day1, by = c("name" = "sample_ID"))
+
+#shannondiv_df$Crop <- factor(shannondiv_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+shannondiv_df$Crop <- factor(shannondiv_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+#just crop
+plot_sppr <- ggplot(shannondiv_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+  scale_fill_manual(values=col_bound)+
+  theme_bw()+
+  labs(x = "Crop",
+       y = "Shannon",
+       title = "Species richness: shannon")
+plot_sppr
+
+#other significant factor was region
+plot_sppr <- ggplot(shannondiv_df, aes(x = Region, y = value, fill = Crop)) +
+  geom_boxplot() +
+  facet_wrap(~Crop, scales = "free_x")+
+  theme_bw()+
+  scale_fill_manual(values=col_bound)+
+  labs(x = "Region",
+       y = "Shannon",
+       title = "Species richness: shannon")+
+  theme(axis.text.x = element_text(angle = 90,size=7,hjust=1))
+
+plot_sppr
+
+
+#other significant factor was flowertime
+plot_sppr <- ggplot(shannondiv_df, aes(x = Crop, y = value, fill = Crop)) +
+  geom_boxplot() +
+  facet_wrap(~flowertime, scales = "free_x")+
+  theme_bw()+
+  scale_fill_manual(values=col_bound)+
+  labs(x = "Region",
+       y = "Shannon",
+       title = "Species richness: shannon")+
+  theme(axis.text.x = element_text(angle = 90,size=7,hjust=1))
+
+plot_sppr
+```
+
+## Beta diversity and MDS plots
+
+```{r diversity_beta_MDS_day1}
+################
+#beta diversity#
+################
+#im not sure that this is useful as I have to remove the 0's (e.g. samples where there was no non-bee insects observed ~mostly apple/pear) but here it is:
+#remove zero values:
+counts_day1_wide_no0 <- counts_day1_wide[rowSums(counts_day1_wide == 0) != ncol(counts_day1_wide), ]
+
+meta_data_day1_no0<-meta_data_day1 %>% filter(sample_ID %in% row.names(counts_day1_wide_no0))
+
+#crop
+perm<-adonis2(counts_day1_wide_no0 ~ Crop,data=meta_data_day1_no0)
+perm
+pairwise_adonis<-pairwise.adonis2(counts_day1_wide_no0 ~ Crop, data = meta_data_day1_no0)
+pairwise_adonis
+tests<-names(pairwise_adonis)
+tests<-tests[-1]
+columns= c("Test","pvalue")
+myData = data.frame(matrix(nrow = 0, ncol = length(columns))) 
+
+for (item in tests){
+#  print(item)
+   pvalue<-eval(parse(text =paste0('pairwise_adonis$','`',item,'`' ,'$`Pr(>F)`[1]')))
+#   print(pvalue)
+out<-data.frame(Test = item, pvalue = pvalue)
+#print(out)
+myData<-rbind(myData,out)
+      }
+
+write.csv(myData,'Pairwise_adonis_beta_diversity_day1repsonly_countsvscrops.csv',quote = F,row.names = F)
+
+#flowertime
+perm<-adonis2(counts_day1_wide_no0 ~ flowertime,data=meta_data_day1_no0)
+perm
+#pairwise_adonis<-pairwise.adonis2(counts_day1_wide_no0 ~ flowertime, data = meta_data_day1_no0)
+#pairwise_adonis
+
+#I think to look at the impact of region within a crop we need to run this within a crop. This is because there is little overlap in regions between crops and the 0,0 situation makes it too confusing (at least for me)
+#so just testing does community composition vary between regions within a crop. 
+categories_crop <- meta_data_day1 %>% filter(Crop!='Radish') %>% select(Crop) %>% unique()
+categories_crop$Crop <- gsub("Pak Choi", "Pakchoi", categories_crop$Crop)
+
+for (item in categories_crop$Crop){
+  print(paste('Analysing',item))
+filtered_counts_day1_wide_no0 <- counts_day1_wide_no0[grepl(paste0('^',item), rownames(counts_day1_wide_no0)), ] %>% select(where(~ sum(.) != 0))
+filtered_meta_data_day1_no0<-meta_data_day1 %>% filter(sample_ID %in% row.names(filtered_counts_day1_wide_no0))
+perm<-adonis2(filtered_counts_day1_wide_no0 ~ Region,data=filtered_meta_data_day1_no0)
+print(perm)
+pairwise_adonis<-pairwise.adonis2(filtered_counts_day1_wide_no0 ~ Region, data = filtered_meta_data_day1_no0)
+print(pairwise_adonis)
+tests<-names(pairwise_adonis)
+tests<-tests[-1]
+columns= c("Test","pvalue")
+myData = data.frame(matrix(nrow = 0, ncol = length(columns))) 
+for (item1 in tests){
+#  print(item)
+   pvalue<-eval(parse(text =paste0('pairwise_adonis$','`',item1,'`' ,'$`Pr(>F)`[1]')))
+#   print(pvalue)
+out<-data.frame(Test = item1, pvalue = pvalue)
+#print(out)
+myData<-rbind(myData,out)
+      }
+write.csv(myData,paste0('Pairwise_adonis_beta_diversity_day1repsonly_regionvs',item,'.csv'),quote = F,row.names = F)
+}
+
+
+#MDS
+pk_NMDS <- metaMDS(counts_day1_wide_no0,trymax=20)
+#doesnt converge - whats up?
+pk_NMDS
+#stress (ideally <0.2)
+
+stressplot(pk_NMDS)
+
+plot(pk_NMDS)
+
+plot_df <- scores(pk_NMDS, display = "sites") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("site") %>% 
+  full_join(meta_data_day1_no0, by = c("site" = "sample_ID"))
+
+#keep same colour scheme
+#plot_df$Crop <- factor(plot_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+plot_df$Crop <- factor(plot_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop)) +
+  geom_point(size = 2, alpha = 0.8) +
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  labs(title = "NMDS")
+plot_nmds
+
+#################################################################
+#setting a minimum count of 5 across at least 2 taxa#
+#################################################################
+#this is a little arbitary but means the MDS plot isnt trying to converge stuff with basically no data
+#remove <5 counts:
+counts_day1_wide_no0 <- counts_day1_wide[rowSums(counts_day1_wide) >= 5, ]
+#remove things that are only from a single species
+counts_day1_wide_no0 <-counts_day1_wide_no0[which(rowSums(1*(counts_day1_wide_no0!=0))>1),]
+
+meta_data_day1_no0<-meta_data_day1 %>% filter(sample_ID %in% row.names(counts_day1_wide_no0))
+
+#redoing the beta as well
+#crop
+perm<-adonis2(counts_day1_wide_no0 ~ Crop,data=meta_data_day1_no0)
+perm
+pairwise_adonis<-pairwise.adonis2(counts_day1_wide_no0 ~ Crop, data = meta_data_day1_no0)
+pairwise_adonis
+tests<-names(pairwise_adonis)
+tests<-tests[-1]
+columns= c("Test","pvalue")
+myData = data.frame(matrix(nrow = 0, ncol = length(columns))) 
+
+for (item in tests){
+#  print(item)
+   pvalue<-eval(parse(text =paste0('pairwise_adonis$','`',item,'`' ,'$`Pr(>F)`[1]')))
+#   print(pvalue)
+out<-data.frame(Test = item, pvalue = pvalue)
+#print(out)
+myData<-rbind(myData,out)
+      }
+
+write.csv(myData,'Pairwise_adonis_beta_diversity_day1repsonly_countsvscrops_mincount5.csv',quote = F,row.names = F)
+
+#flowertime
+perm<-adonis2(counts_day1_wide_no0 ~ flowertime,data=meta_data_day1_no0)
+perm
+#pairwise_adonis<-pairwise.adonis2(counts_day1_wide_no0 ~ flowertime, data = meta_data_day1_no00)
+#pairwise_adonis
+
+#I think to look at the impact of region within a crop we need to run this within a crop. This is because there is little overlap in regions between crops and the 0,0 situation makes it too confusing (at least for me)
+#so just testing does community composition vary between regions within a crop. 
+categories_crop <- meta_data_day1 %>% filter(Crop!='Radish') %>% select(Crop) %>% unique()
+categories_crop$Crop <- gsub("Pak Choi", "Pakchoi", categories_crop$Crop)
+for (item in categories_crop$Crop){
+  print(paste('Analysing',item))
+filtered_counts_day1_wide_no0<- counts_day1_wide_no0[grepl(paste0('^',item), rownames(counts_day1_wide_no0)), ] %>% select(where(~ sum(.) != 0))
+filtered_meta_data_day1_no0<-meta_data_day1 %>% filter(sample_ID %in% row.names(filtered_counts_day1_wide_no0))
+perm<-adonis2(filtered_counts_day1_wide_no0 ~ Region,data=filtered_meta_data_day1_no0)
+print(perm)
+pairwise_adonis<-pairwise.adonis2(filtered_counts_day1_wide_no0 ~ Region, data = filtered_meta_data_day1_no0)
+print(pairwise_adonis)
+tests<-names(pairwise_adonis)
+tests<-tests[-1]
+columns= c("Test","pvalue")
+myData = data.frame(matrix(nrow = 0, ncol = length(columns))) 
+for (item1 in tests){
+#  print(item)
+   pvalue<-eval(parse(text =paste0('pairwise_adonis$','`',item1,'`' ,'$`Pr(>F)`[1]')))
+#   print(pvalue)
+out<-data.frame(Test = item1, pvalue = pvalue)
+#print(out)
+myData<-rbind(myData,out)
+      }
+write.csv(myData,paste0('Pairwise_adonis_beta_diversity_day1repsonly_regionvs',item,'_mincount5.csv'),quote = F,row.names = F)
+}
+
+#####
+#MDS#
+#####
+
+pk_NMDS <- metaMDS(counts_day1_wide_no0,trymax=500)
+#converges - yay - a little stressed but is a lot of data
+pk_NMDS
+#stress 
+stressplot(pk_NMDS)
+
+plot(pk_NMDS)
+
+plot_df <- scores(pk_NMDS, display = "sites") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("site") %>% 
+  full_join(meta_data_day1_no0, by = c("site" = "sample_ID"))
+
+#plot_df$Crop <- factor(plot_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+plot_df$Crop <- factor(plot_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop)) +
+  geom_point(size = 2, alpha = 0.8) +
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop)) +
+  geom_point(size = 2, alpha = 1) +
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop,shape=Crop)) +
+  geom_point(size = 3, alpha = 1) +
+  scale_shape_manual(values = c("Avocado" = 15, "Apple" = 15, "Pear" = 15, "Kiwifruit" = 15, "Pak Choi" = 16, "Radish" = 16, "Carrot" = 16, "Onion" = 16))+
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop,shape=Crop)) +
+  geom_point(size = 2, alpha = 1) +
+  scale_shape_manual(values = c("Avocado" = 16, "Apple" = 16, "Pear" = 16, "Kiwifruit" = 16, "Pak Choi" = 15, "Radish" = 15, "Carrot" = 15, "Onion" = 15))+
+  stat_ellipse(linetype = 1, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+#apple makes that look a bit dumb
+#its only got a few samples which is why its so biased to that outlier. I'd just delete the cirle for apple on the previous as i think its too dodgy -
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop,shape=Crop)) +
+  geom_point(size = 2, alpha = 1) +
+  scale_shape_manual(values = c("Avocado" = 16, "Apple" = 16, "Pear" = 16, "Kiwifruit" = 16, "Pak Choi" = 15, "Radish" = 15, "Carrot" = 15, "Onion" = 15))+
+  stat_ellipse(linewidth = 0.5,aes(linetype=Crop)) +
+  scale_linetype_manual(values = c(1,0,1,1,1,1,1,1)) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+
+# If you set the min at 6 it drops that outlier and wont draw a circle as there is to few points for apple 
+
+counts_day1_wide_no0 <- counts_day1_wide[rowSums(counts_day1_wide) >= 6, ]
+#remove things that are only from a single species
+counts_day1_wide_no0 <-counts_day1_wide_no0[which(rowSums(1*(counts_day1_wide_no0!=0))>1),]
+
+meta_data_day1_no0<-meta_data_day1 %>% filter(sample_ID %in% row.names(counts_day1_wide_no0))
+#MDS
+pk_NMDS <- metaMDS(counts_day1_wide_no0,trymax=200)
+#converges - yay - a little stressed but is a lot of data
+pk_NMDS
+#stress 
+stressplot(pk_NMDS)
+
+plot(pk_NMDS)
+
+plot_df <- scores(pk_NMDS, display = "sites") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("site") %>% 
+  full_join(meta_data_day1_no0, by = c("site" = "sample_ID"))
+
+#plot_df$Crop <- factor(plot_df$Crop, levels = c("Apple","Pear","Avocado","Kiwifruit","Pak Choi","Carrot", "Onion","Radish"))
+plot_df$Crop <- factor(plot_df$Crop, levels = c("Avocado","Apple","Pear","Kiwifruit","Pak Choi","Radish", "Carrot","Onion"))
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop)) +
+  geom_point(size = 2, alpha = 0.8) +
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop)) +
+  geom_point(size = 2, alpha = 1) +
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop,shape=Crop)) +
+  geom_point(size = 3, alpha = 1) +
+  scale_shape_manual(values = c("Avocado" = 15, "Apple" = 15, "Pear" = 15, "Kiwifruit" = 15, "Pak Choi" = 16, "Radish" = 16, "Carrot" = 16, "Onion" = 16))+
+  stat_ellipse(linetype = 2, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Crop,shape=Crop)) +
+  geom_point(size = 2, alpha = 1) +
+  scale_shape_manual(values = c("Avocado" = 16, "Apple" = 16, "Pear" = 16, "Kiwifruit" = 16, "Pak Choi" = 15, "Radish" = 15, "Carrot" = 15, "Onion" = 15))+
+  stat_ellipse(linetype = 1, linewidth = 0.5) +
+  theme_bw()+
+  scale_colour_manual(values=col_bound)+
+  labs(title = "NMDS")
+plot_nmds
+
+```
+
+##innext day 1
+
+```{r diversity_inext_day1}
+########
+#innext#
+########
+#innext by its nature should be robust for sampling bias but just for evenness sake Im rerunning on day 1 samples alone
+library(iNEXT.3D)
+
+#generate a list of the unique sample locations
+categories <- unique(meta_data$Crop)
+categories
+
+#create empty list
+split_list <- list()
+#fill empty list with a presence absence OTU from each location
+
+head(allcrops_per_r_fly)
+
+#I need to fill up the NA's for the samples with 0 flies with some dummy 0 for ones species to keep them in the next stage - so this is just to add a 0 value in and I've chosed the insect '27' at random (cause i know it occurs in the dataset so Im not adding something not present)
+
+#in '' as its a factor not a number
+#filter to day 1 only
+allcrops_per_r_fly_innext<-allcrops_per_r_fly %>% filter(Day=='Day_1')
+allcrops_per_r_fly_innext$Ordering[is.na(allcrops_per_r_fly_innext$Ordering)] <- '27'
+allcrops_per_r_fly_innext$raw_count[is.na(allcrops_per_r_fly_innext$raw_count)] <- 0
+
+#create empty list
+split_list <- list()
+
+for (category in categories) {
+  print(category)
+  subset_data <- allcrops_per_r_fly_innext %>% filter(Crop == category)
+  #  subset_data <- allcrops_per_r_fly_innext %>% filter(Crop == "Carrot")
+  test<-subset_data %>% ungroup() %>% dplyr::select(sample_ID,Ordering,raw_count)
+  test   <- test %>%  spread(key = sample_ID, value = raw_count)
+  test<-test %>% remove_rownames %>% column_to_rownames(var="Ordering")
+  test[is.na(test)] <- 0
+  # test <- test[rowSums(test == 0) != ncol(test), ]
+  test<-test %>% mutate(across(everything(), ~ ifelse(. > 0, 1, 0)))
+  split_list[[category]]<-as(test,'matrix')
+} 
+
+matrix_list <- list(data = list())
+for (category in categories) {
+  otu_table <- as(split_list[[category]], "matrix")
+  matrix_list[["data"]][[category]] <- otu_table
+}
+
+#here Im setting the endpoint as NULL which is double the input sample size (this is probably most robust)
+out.raw <- iNEXT3D(data = matrix_list$data, diversity = 'TD', q = c(0, 1, 2), datatype = 'incidence_raw', nboot = 50,endpoint=NULL)
+
+#there is various ways to look at these plots:
+#within a crop
+ggiNEXT3D(out.raw, type = 1, facet.var = 'Assemblage') + facet_wrap(~Assemblage, nrow = 3)
+
+#across crops
+ggiNEXT3D(out.raw, type = 1, facet.var = "Order.q")
+
+#sample completeness
+ggiNEXT3D(out.raw, type = 2, facet.var = "Order.q", color.var = "Assemblage")
+
+#running innext as abundance as well
+
+#create empty list
+split_list <- list()
+
+for (category in categories) {
+  print(category)
+  subset_data <- allcrops_per_r_fly_innext %>% filter(Crop == category)
+  # subset_data <- allcrops_per_r_fly_innext %>% filter(Crop == "Carrot")
+  test<-subset_data %>% ungroup() %>% dplyr::select(sample_ID,Ordering,raw_count)
+  test   <- test %>%  spread(key = sample_ID, value = raw_count)
+  test<-test %>% remove_rownames %>% column_to_rownames(var="Ordering")
+  test[is.na(test)] <- 0
+  test<-as.data.frame(rowSums(test))
+  colnames(test) <- c(paste0(category))
+  # test <- test[rowSums(test == 0) != ncol(test), ]
+  # test<-test %>% mutate(across(everything(), ~ ifelse(. > 0, 1, 0)))
+  split_list[[category]]<-as(test,'matrix')
+} 
+
+matrix_list <- list(data = list())
+for (category in categories) {
+  otu_table <- as(split_list[[category]], "matrix")
+  matrix_list[["data"]][[category]] <- otu_table
+}
+
+#here Im setting the endpoint as NULL which is double the input sample size (this is probably most robust)
+out.raw <- iNEXT3D(data = matrix_list$data, diversity = 'TD', q = c(0, 1, 2), datatype = 'abundance', nboot = 50,endpoint=NULL)
+
+#there is various ways to look at these plots:
+#within a sample
+ggiNEXT3D(out.raw, type = 1, facet.var = 'Assemblage') + facet_wrap(~Assemblage, nrow = 3)
+
+#across samples
+ggiNEXT3D(out.raw, type = 1, facet.var = "Order.q")
+
+```
